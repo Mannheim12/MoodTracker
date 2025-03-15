@@ -1,0 +1,237 @@
+package com.example.moodtracker.worker
+
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.graphics.Color
+import android.content.Context
+import android.content.Intent
+import android.content.SharedPreferences
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.work.CoroutineWorker
+import androidx.work.Data
+import androidx.work.ExistingWorkPolicy
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.WorkerParameters
+import com.example.moodtracker.R
+import com.example.moodtracker.model.Constants
+import com.example.moodtracker.ui.MoodSelectionActivity
+import com.example.moodtracker.util.ConfigManager
+import com.example.moodtracker.util.DataManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.util.Calendar
+import java.util.Locale
+import java.util.Random
+import java.util.concurrent.TimeUnit
+
+/**
+ * Worker class that handles mood check scheduling and notifications
+ */
+class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+
+    private val dataManager = DataManager()
+    private val configManager = ConfigManager()
+    private val random = Random()
+    private val prefs: SharedPreferences = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+
+    // Configuration values (will be loaded from config file)
+    private var minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES
+    private var maxIntervalMinutes: Int = Constants.MAX_INTERVAL_MINUTES
+    private var retryWindowMinutes: Int = Constants.RETRY_WINDOW_MINUTES
+
+    companion object {
+        private const val PREF_NAME = "mood_tracker_prefs"
+        private const val PREF_LAST_CHECK_TIME = "last_check_time"
+        private const val UNIQUE_WORK_NAME = "mood_check_worker"
+        private const val INITIAL_DELAY_SECS = 10L // Short delay for first run after boot
+
+        // Key for input data - keep this to maintain consistency in the code
+        private const val WORKER_DATA_IS_RETRY = "is_retry"
+        private const val WORKER_DATA_IS_MANUAL = "is_manual_trigger"
+
+        /**
+         * Schedule the mood check worker - unified method for all scheduling scenarios
+         * @param context Application context
+         * @param resetSchedule Whether to reset the scheduling pattern
+         * @param immediate Whether to trigger immediately
+         * @param isRetry Whether this is a retry check
+         */
+        fun schedule(context: Context, resetSchedule: Boolean = false, immediate: Boolean = false, isRetry: Boolean = false) {
+            val workManager = WorkManager.getInstance(context)
+
+            // Cancel any existing work
+            workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
+
+            // Create data for worker
+            val data = Data.Builder()
+                .putBoolean("reset_schedule", resetSchedule)
+                .putBoolean(WORKER_DATA_IS_MANUAL, immediate)
+                .putBoolean(WORKER_DATA_IS_RETRY, isRetry)
+                .build()
+
+            // Create work request
+            val workRequest = OneTimeWorkRequestBuilder<MoodCheckWorker>()
+                .setInputData(data)
+                .addTag(Constants.WORKER_TAG)
+                // Use zero delay for immediate triggers, otherwise short delay
+                .setInitialDelay(if (immediate) 0L else INITIAL_DELAY_SECS, TimeUnit.SECONDS)
+                .build()
+
+            // Enqueue as unique work
+            workManager.enqueueUniqueWork(
+                UNIQUE_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                workRequest
+            )
+        }
+    }
+
+    override suspend fun doWork(): Result {
+        // Get input data
+        val resetSchedule = inputData.getBoolean("reset_schedule", false)
+        val isRetry = inputData.getBoolean(WORKER_DATA_IS_RETRY, false)
+        val isManualTrigger = inputData.getBoolean(WORKER_DATA_IS_MANUAL, false)
+
+        // Load configuration values
+        loadConfigValues()
+
+        // Check for and handle missed entries - but skip for manual triggers
+        if (!isManualTrigger) {
+            checkForMissedEntries()
+        }
+
+        // Record this check time in shared preferences
+        prefs.edit().putLong(PREF_LAST_CHECK_TIME, System.currentTimeMillis()).apply()
+
+        try {
+            // Instead of directly launching activity, show a notification
+            showMoodCheckNotification()
+
+            // Schedule the next check
+            scheduleNextMoodCheck(resetSchedule)
+
+            return Result.success()
+        } catch (e: Exception) {
+            // If there was an error, try again later
+            return Result.retry()
+        }
+    }
+
+    private fun showMoodCheckNotification() {
+        // Create notification channel if needed (required for Android 8.0+)
+        createNotificationChannel()
+
+        // Create intent for notification tap
+        val intent = Intent(applicationContext, MoodSelectionActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        }
+
+        // Create pending intent
+        val pendingIntent = PendingIntent.getActivity(
+            applicationContext,
+            0,
+            intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+
+        // Build the notification
+        val notification = NotificationCompat.Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_ID)
+            .setSmallIcon(R.drawable.ic_mood_tracker)
+            .setContentTitle(applicationContext.getString(R.string.notification_title))
+            .setContentText(applicationContext.getString(R.string.notification_text))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_ALARM) // Treated as high-priority
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true) // Remove when tapped
+            .setVibrate(longArrayOf(0, 500, 250, 500)) // Vibration pattern
+            .setLights(Color.BLUE, 1000, 500) // Flash LED
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show on lock screen
+            .build()
+
+        // Get notification manager
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+
+        // Show the notification
+        notificationManager.notify(Constants.NOTIFICATION_ID, notification)
+    }
+
+    // Load configuration values from config file
+    private suspend fun loadConfigValues() = withContext(Dispatchers.IO) {
+        val config = configManager.loadConfig()
+        minIntervalMinutes = config["min_interval_minutes"] ?: Constants.MIN_INTERVAL_MINUTES
+        maxIntervalMinutes = config["max_interval_minutes"] ?: Constants.MAX_INTERVAL_MINUTES
+        retryWindowMinutes = config["retry_window_minutes"] ?: Constants.RETRY_WINDOW_MINUTES
+    }
+
+    // Check for missed entries and record them
+    private suspend fun checkForMissedEntries() = withContext(Dispatchers.IO) {
+        val calendar = Calendar.getInstance()
+        val currentHourId = dataManager.generateHourId(calendar.timeInMillis)
+
+        // Check the last 24 hours for missed entries
+        for (i in 1..24) {
+            calendar.add(Calendar.HOUR_OF_DAY, -1)
+            val hourId = dataManager.generateHourId(calendar.timeInMillis)
+
+            // Skip the current hour
+            if (hourId == currentHourId) continue
+
+            // If there's no entry for this hour, add it as "Asleep"
+            if (!dataManager.hasEntryForHour(hourId)) {
+                dataManager.addMoodEntry("Asleep", hourId)
+            }
+        }
+    }
+
+    // Schedule the next mood check
+    private fun scheduleNextMoodCheck(resetSchedule: Boolean = false) {
+        // Get current time
+        val now = System.currentTimeMillis()
+
+        // Calculate next check time (Will be updated with a proper scheduling algorithm later)
+        val nextCheckTime = now + (1 * 60 * 1000) // 1 minute in milliseconds
+
+        // Store next check time in shared preferences for debug display
+        prefs.edit()
+            .putLong("next_check_time", nextCheckTime)
+            .putLong(PREF_LAST_CHECK_TIME, now)
+            .apply()
+
+        // Create work request with 1-minute delay
+        val workRequest = OneTimeWorkRequestBuilder<MoodCheckWorker>()
+            .setInitialDelay(1, TimeUnit.MINUTES)
+            .addTag(Constants.WORKER_TAG)
+            .build()
+
+        // Enqueue as unique work
+        WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+            UNIQUE_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            workRequest
+        )
+    }
+
+    // Create notification channel
+    private fun createNotificationChannel() {
+        // No need to check SDK version since our minSdk is 26+
+        val channel = NotificationChannel(
+            Constants.NOTIFICATION_CHANNEL_ID,
+            applicationContext.getString(R.string.app_name),
+            NotificationManager.IMPORTANCE_HIGH // Changed from IMPORTANCE_LOW to HIGH
+        ).apply {
+            description = applicationContext.getString(R.string.notification_text)
+            enableLights(true)
+            lightColor = Color.BLUE
+            enableVibration(true)
+            vibrationPattern = longArrayOf(0, 500, 250, 500)
+            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+        }
+
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
+    }
+}

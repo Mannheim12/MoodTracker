@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mood Tracker</string>
+    <string name="app_title">Mood Tracker</string>
+    <string name="app_description">This app will notify you once every hour to record your current mood.</string>
+    <string name="tap_to_start">Tap the button below to start tracking your mood.</string>
+    <string name="config_info">Configuration and data are stored in your Documents folder.</string>
+    <string name="mood_prompt">How are you feeling right now?</string>
+    <string name="current_time_placeholder">Current time: 12:00 PM</string>
+    <string name="current_time_format">Current time: %s</string>
+    <string name="notification_title">Mood Check</string>
+    <string name="notification_text">Time to record your current mood</string>
+    <string name="service_running">Mood Tracker is running in the background.</string>
+    <string name="start_tracking">Start Tracking</string>
+    <string name="stop_tracking">Stop Tracking</string>
+    <string name="restart_tracking">Restart Tracking</string>
+    <string name="permissions_needed">Permissions needed to start tracking.</string>
+    <string name="permissions_required">Permissions required for Mood Tracker to function.</string>
+    <string name="check_now">Check Now</string>
+    <string name="refresh">Refresh</string>
+    <string name="debug_info_title">Debug Information</string>
+    <string name="loading">Loading…</string>
+    <string name="check_triggered">Mood check triggered!</string>
+    <string name="trigger_error">Error triggering check</string>
+</resources>
