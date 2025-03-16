@@ -45,32 +45,39 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     companion object {
         private const val PREF_NAME = "mood_tracker_prefs"
+        private const val PREF_WAS_TRACKING = "was_tracking"
+        private const val PREF_IS_RETRY = "is_retry"
+        private const val PREF_NEXT_CHECK_TIME = "next_check_time"
         private const val PREF_LAST_CHECK_TIME = "last_check_time"
         private const val UNIQUE_WORK_NAME = "mood_check_worker"
         private const val INITIAL_DELAY_SECS = 10L // Short delay for first run after boot
 
-        // Key for input data - keep this to maintain consistency in the code
-        private const val WORKER_DATA_IS_RETRY = "is_retry"
-        private const val WORKER_DATA_IS_MANUAL = "is_manual_trigger"
-
         /**
-         * Schedule the mood check worker - unified method for all scheduling scenarios
-         * @param context Application context
-         * @param resetSchedule Whether to reset the scheduling pattern
-         * @param immediate Whether to trigger immediately
-         * @param isRetry Whether this is a retry check
+         * Schedule the mood check worker with enhanced state tracking
          */
         fun schedule(context: Context, resetSchedule: Boolean = false, immediate: Boolean = false, isRetry: Boolean = false) {
             val workManager = WorkManager.getInstance(context)
+            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
             // Cancel any existing work
             workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
 
+            // Update preferences for manual checks vs retry checks
+            if (immediate) {
+                prefs.edit()
+                    .putBoolean(PREF_IS_RETRY, false) // Manual checks are not retries
+                    .apply()
+            } else if (isRetry) {
+                // Set retry status for retry checks
+                prefs.edit()
+                    .putBoolean(PREF_IS_RETRY, true)
+                    .apply()
+            }
+
             // Create data for worker
             val data = Data.Builder()
                 .putBoolean("reset_schedule", resetSchedule)
-                .putBoolean(WORKER_DATA_IS_MANUAL, immediate)
-                .putBoolean(WORKER_DATA_IS_RETRY, isRetry)
+                .putBoolean("is_immediate", immediate)
                 .build()
 
             // Create work request
@@ -87,20 +94,29 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 ExistingWorkPolicy.REPLACE,
                 workRequest
             )
+
+            // Update tracking state
+            prefs.edit()
+                .putBoolean(PREF_WAS_TRACKING, true)
+                .putLong(PREF_NEXT_CHECK_TIME, System.currentTimeMillis() +
+                        (if (immediate) 0 else INITIAL_DELAY_SECS * 1000))
+                .apply()
         }
     }
 
     override suspend fun doWork(): Result {
         // Get input data
         val resetSchedule = inputData.getBoolean("reset_schedule", false)
-        val isRetry = inputData.getBoolean(WORKER_DATA_IS_RETRY, false)
-        val isManualTrigger = inputData.getBoolean(WORKER_DATA_IS_MANUAL, false)
+        val isImmediate = inputData.getBoolean("is_immediate", false)
+
+        // Check if this is a retry check from preferences
+        val isRetry = prefs.getBoolean(PREF_IS_RETRY, false)
 
         // Load configuration values
         loadConfigValues()
 
-        // Check for and handle missed entries - but skip for manual triggers
-        if (!isManualTrigger) {
+        // Only check for missed entries on regular checks
+        if (!isImmediate && !isRetry) {
             checkForMissedEntries()
         }
 
@@ -111,8 +127,8 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             // Instead of directly launching activity, show a notification
             showMoodCheckNotification()
 
-            // Schedule the next check
-            scheduleNextMoodCheck(resetSchedule)
+            // Schedule the next check based on current status
+            scheduleNextMoodCheck(resetSchedule, isRetry)
 
             return Result.success()
         } catch (e: Exception) {
@@ -188,17 +204,21 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
 
     // Schedule the next mood check
-    private fun scheduleNextMoodCheck(resetSchedule: Boolean = false) {
+    private fun scheduleNextMoodCheck(resetSchedule: Boolean = false, isRetry: Boolean = false) {
         // Get current time
         val now = System.currentTimeMillis()
 
         // Calculate next check time (Will be updated with a proper scheduling algorithm later)
         val nextCheckTime = now + (1 * 60 * 1000) // 1 minute in milliseconds
 
-        // Store next check time in shared preferences for debug display
+        // Store state in shared preferences
+        // Note: in the real logic, would set is_retry based on success/failure,
+        // but for now just keep it as false
         prefs.edit()
-            .putLong("next_check_time", nextCheckTime)
+            .putLong(PREF_NEXT_CHECK_TIME, nextCheckTime)
             .putLong(PREF_LAST_CHECK_TIME, now)
+            .putBoolean(PREF_IS_RETRY, false) // Assume success for now
+            .putBoolean(PREF_WAS_TRACKING, true)
             .apply()
 
         // Create work request with 1-minute delay

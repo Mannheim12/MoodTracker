@@ -225,9 +225,7 @@ class MoodSelectionActivity : AppCompatActivity() {
                     .putBoolean("was_tracking", true)
                     .apply()
 
-                // REMOVED: Schedule the next mood check
-                // MoodCheckWorker.schedule(applicationContext)
-
+                // MoodCheckWorker will schedule the next mood check
             } catch (e: Exception) {
                 // Log error but don't crash
                 e.printStackTrace()

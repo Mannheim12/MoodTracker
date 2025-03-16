@@ -13,16 +13,14 @@ class MoodTrackerApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
 
-        // Initialize any required components
-        // WorkManager will be initialized automatically since we implement Configuration.Provider
-
         // Check if mood tracking was running before
         val prefs = getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
         val wasTracking = prefs.getBoolean("was_tracking", false)
+        val isRetry = prefs.getBoolean("is_retry", false)
 
-        // If tracking was active, restart it
+        // If tracking was active, restart it with the correct retry status
         if (wasTracking) {
-            com.example.moodtracker.worker.MoodCheckWorker.schedule(this)
+            com.example.moodtracker.worker.MoodCheckWorker.schedule(this, isRetry = isRetry)
         }
     }
 

@@ -271,22 +271,36 @@ class MainActivity : AppCompatActivity() {
         return sb.toString()
     }
 
-    private suspend fun checkWorkerStatus(): String {
+    private fun checkWorkerStatus(): String {
         val sb = StringBuilder()
 
         // Check if worker is scheduled
         val workManager = WorkManager.getInstance(applicationContext)
-        val workInfos = workManager.getWorkInfosByTag(Constants.WORKER_TAG).get()
+
+        // Get work info without blocking
+        val workInfos = try {
+            // This isn't truly non-blocking but safer than direct .get()
+            val workInfosFuture = workManager.getWorkInfosByTag(Constants.WORKER_TAG)
+            if (workInfosFuture.isDone) {
+                workInfosFuture.get()
+            } else {
+                emptyList()
+            }
+        } catch (e: Exception) {
+            emptyList()
+        }
 
         // Get next check time from SharedPreferences
         val prefs = getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
         val nextCheckTime = prefs.getLong("next_check_time", 0)
+        val isRetry = prefs.getBoolean("is_retry", false)
 
         // Display next check time prominently at the top
         if (nextCheckTime > 0) {
             val nextCheckDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 .format(Date(nextCheckTime))
             sb.append("NEXT MOOD CHECK: $nextCheckDate\n")
+            sb.append("Check Type: ${if (isRetry) "RETRY" else "REGULAR"}\n")
 
             // Time until next check
             val minutesUntil = TimeUnit.MILLISECONDS.toMinutes(nextCheckTime - System.currentTimeMillis())
