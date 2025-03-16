@@ -2,16 +2,19 @@ package com.example.moodtracker
 
 import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
 import android.widget.Button
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.util.ConfigManager
@@ -34,8 +37,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var configManager: ConfigManager
     private lateinit var dataManager: DataManager
     private lateinit var statusText: TextView
-    private lateinit var startButton: Button
-    private lateinit var checkNowButton: Button
+    private lateinit var toggleTrackingButton: Button
+    private lateinit var stopTrackingButton: Button
+    private lateinit var requestPermissionsButton: Button
     private lateinit var refreshButton: Button
     private lateinit var debugInfoText: TextView
 
@@ -44,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private val updateRunnable = object : Runnable {
         override fun run() {
             updateDebugInfo()
+            updateButtonStates()
             handler.postDelayed(this, 10000) // Update every 10 seconds
         }
     }
@@ -51,19 +56,21 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 123
         private val REQUIRED_PERMISSIONS = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // For Android 13+ (API 33+), include notification permission
             arrayOf(
                 Manifest.permission.POST_NOTIFICATIONS,
+                Manifest.permission.VIBRATE
                 // Commenting out storage permissions until interface issues are resolved
                 // Manifest.permission.READ_EXTERNAL_STORAGE,
                 // Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.VIBRATE
             )
         } else {
+            // For older versions
             arrayOf(
+                Manifest.permission.VIBRATE
                 // Commenting out storage permissions until interface issues are resolved
                 // Manifest.permission.READ_EXTERNAL_STORAGE,
                 // Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                Manifest.permission.VIBRATE
             )
         }
     }
@@ -77,53 +84,43 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize UI elements
         statusText = findViewById(R.id.status_text)
-        startButton = findViewById(R.id.start_button)
-        checkNowButton = findViewById(R.id.check_now_button)
+        toggleTrackingButton = findViewById(R.id.toggle_tracking_button)
+        stopTrackingButton = findViewById(R.id.stop_tracking_button)
+        requestPermissionsButton = findViewById(R.id.request_permissions_button)
         refreshButton = findViewById(R.id.refresh_button)
         debugInfoText = findViewById(R.id.debug_info_text)
 
         // Set up button click listeners
-        startButton.setOnClickListener {
-            if (checkAndRequestPermissions()) {
-                startMoodTracking()
-            }
+        toggleTrackingButton.setOnClickListener {
+            toggleTracking()
         }
 
-        checkNowButton.setOnClickListener {
-            if (checkAndRequestPermissions()) {
-                triggerMoodCheckNow()
-            }
+        stopTrackingButton.setOnClickListener {
+            stopTracking()
+        }
+
+        requestPermissionsButton.setOnClickListener {
+            requestPermissions()
         }
 
         refreshButton.setOnClickListener {
             updateDebugInfo()
+            updateButtonStates()
         }
 
-        // Check if permissions are granted on start
-        if (checkPermissions()) {
-            startButton.setText(R.string.restart_tracking)
-            statusText.setText(R.string.service_running)
-
-            // Start auto-updates of debug info
-            handler.post(updateRunnable)
-        } else {
-            startButton.setText(R.string.start_tracking)
-            statusText.setText(R.string.permissions_needed)
-        }
-
-        // Initial debug info update
+        // Initial UI update
         updateDebugInfo()
+        updateButtonStates()
     }
 
     override fun onResume() {
         super.onResume()
-        // Update debug info when returning to the app
+        // Update debug info and button states when returning to the app
         updateDebugInfo()
+        updateButtonStates()
 
-        // Start periodic updates if permissions are granted
-        if (checkPermissions()) {
-            handler.post(updateRunnable)
-        }
+        // Start periodic updates
+        handler.post(updateRunnable)
     }
 
     override fun onPause() {
@@ -132,19 +129,52 @@ class MainActivity : AppCompatActivity() {
         handler.removeCallbacks(updateRunnable)
     }
 
+    /**
+     * Toggles between starting tracking and triggering an immediate check
+     * based on current tracking state
+     */
+    private fun toggleTracking() {
+        if (!checkPermissions()) {
+            statusText.setText(R.string.permissions_needed)
+            return
+        }
+
+        // Check if tracking is currently active
+        isTrackingActive { isActive ->
+            if (isActive) {
+                // If active, just trigger an immediate check
+                triggerMoodCheckNow()
+            } else {
+                // If not active, start tracking
+                startMoodTracking()
+            }
+            // Update button states after action
+            updateButtonStates()
+        }
+    }
+
+    /**
+     * Start mood tracking by scheduling a worker
+     */
     private fun startMoodTracking() {
         // Schedule the mood tracking via WorkManager
         MoodCheckWorker.schedule(this, true)
 
+        // Update UI
         statusText.setText(R.string.service_running)
-        startButton.setText(R.string.restart_tracking)
 
-        // Start auto-updates of debug info
-        handler.post(updateRunnable)
+        // Save tracking state
+        getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("was_tracking", true)
+            .apply()
 
-        updateDebugInfo()
+        updateButtonStates()
     }
 
+    /**
+     * Trigger a mood check immediately
+     */
     private fun triggerMoodCheckNow() {
         try {
             MoodCheckWorker.schedule(applicationContext, immediate = true)
@@ -160,7 +190,107 @@ class MainActivity : AppCompatActivity() {
             e.printStackTrace()
         }
 
-        updateDebugInfo()
+        updateButtonStates()
+    }
+
+    /**
+     * Stop all mood tracking by canceling all workers
+     */
+    private fun stopTracking() {
+        // Cancel the unique work
+        WorkManager.getInstance(applicationContext).cancelUniqueWork(MoodCheckWorker.UNIQUE_WORK_NAME)
+
+        // Update SharedPreferences
+        getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("was_tracking", false)
+            .apply()
+
+        // Update UI
+        statusText.setText(R.string.tracking_stopped)
+
+        updateButtonStates()
+    }
+
+    /**
+     * Request all required permissions that haven't been granted yet
+     */
+    private fun requestPermissions() {
+        val permissionsToRequest = REQUIRED_PERMISSIONS.filter {
+            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+        }.toTypedArray()
+
+        if (permissionsToRequest.isNotEmpty()) {
+            statusText.setText(R.string.permissions_requesting)
+            ActivityCompat.requestPermissions(this, permissionsToRequest, PERMISSION_REQUEST_CODE)
+        } else {
+            statusText.setText(R.string.permissions_granted)
+        }
+
+        updateButtonStates()
+    }
+
+
+
+    /**
+     * Check if any permissions are missing
+     */
+    private fun checkPermissions(): Boolean {
+        for (permission in REQUIRED_PERMISSIONS) {
+            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
+                return false
+            }
+        }
+        return true
+    }
+
+    /**
+     * Check if mood tracking is currently active
+     */
+    private fun isTrackingActive(callback: (Boolean) -> Unit) {
+        val workManager = WorkManager.getInstance(applicationContext)
+        val workInfosFuture = workManager.getWorkInfosByTag(Constants.WORKER_TAG)
+
+        // Use a coroutine to handle this asynchronously
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                val workInfos = withContext(Dispatchers.IO) {
+                    workInfosFuture.get()
+                }
+
+                // Check if any worker is scheduled or running
+                val isActive = workInfos.any {
+                    it.state == WorkInfo.State.RUNNING ||
+                            it.state == WorkInfo.State.ENQUEUED
+                }
+
+                // Also check the SharedPreferences flag
+                val prefs = getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
+                val wasTracking = prefs.getBoolean("was_tracking", false)
+
+                // Consider active if either condition is true
+                callback(isActive || wasTracking)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                // Assume not active if there's an error
+                callback(false)
+            }
+        }
+    }
+
+    /**
+     * Update the text and enabled state of all buttons based on current app state
+     */
+    private fun updateButtonStates() {
+        // Update permission button state
+        val allPermissionsGranted = checkPermissions()
+        requestPermissionsButton.isEnabled = !allPermissionsGranted
+
+        // Update tracking buttons state
+        isTrackingActive { isActive ->
+            toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
+            stopTrackingButton.isEnabled = isActive
+        }
     }
 
     private fun updateDebugInfo() {
@@ -268,6 +398,11 @@ class MainActivity : AppCompatActivity() {
             sb.append("$permissionName: ${if (granted) "GRANTED" else "DENIED"}\n")
         }
 
+        // Check battery optimization status
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
+        sb.append("\nBattery Optimization Exempt: ${if (isIgnoringBatteryOptimizations) "YES" else "NO"}\n")
+
         return sb.toString()
     }
 
@@ -337,6 +472,10 @@ class MainActivity : AppCompatActivity() {
             sb.append("\nLast Check: NEVER\n")
         }
 
+        // Tracking status from SharedPreferences
+        val wasTracking = prefs.getBoolean("was_tracking", false)
+        sb.append("\nTracking Enabled: ${if (wasTracking) "YES" else "NO"}\n")
+
         return sb.toString()
     }
 
@@ -373,34 +512,6 @@ class MainActivity : AppCompatActivity() {
         return sb.toString()
     }
 
-    // Check if all permissions are granted
-    private fun checkPermissions(): Boolean {
-        for (permission in REQUIRED_PERMISSIONS) {
-            if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
-                return false
-            }
-        }
-        return true
-    }
-
-    // Request permissions if not granted
-    private fun checkAndRequestPermissions(): Boolean {
-        if (checkPermissions()) {
-            return true
-        }
-
-        val permissionsToRequest = REQUIRED_PERMISSIONS.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }.toTypedArray()
-
-        if (permissionsToRequest.isNotEmpty()) {
-            ActivityCompat.requestPermissions(this, permissionsToRequest, PERMISSION_REQUEST_CODE)
-            return false
-        }
-
-        return true
-    }
-
     // Handle permission request result
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -412,11 +523,13 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
                 // All permissions granted
-                startMoodTracking()
+                statusText.setText(R.string.permissions_granted)
             } else {
-                // Permissions denied
+                // Some permissions denied
                 statusText.setText(R.string.permissions_required)
             }
+
+            updateButtonStates()
         }
     }
 }

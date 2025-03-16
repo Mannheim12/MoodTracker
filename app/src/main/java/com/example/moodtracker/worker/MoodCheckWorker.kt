@@ -44,12 +44,13 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
     private var retryWindowMinutes: Int = Constants.RETRY_WINDOW_MINUTES
 
     companion object {
-        private const val PREF_NAME = "mood_tracker_prefs"
-        private const val PREF_WAS_TRACKING = "was_tracking"
-        private const val PREF_IS_RETRY = "is_retry"
-        private const val PREF_NEXT_CHECK_TIME = "next_check_time"
-        private const val PREF_LAST_CHECK_TIME = "last_check_time"
-        private const val UNIQUE_WORK_NAME = "mood_check_worker"
+        // Making constants public for use in MainActivity
+        const val PREF_NAME = "mood_tracker_prefs"
+        const val PREF_WAS_TRACKING = "was_tracking"
+        const val PREF_IS_RETRY = "is_retry"
+        const val PREF_NEXT_CHECK_TIME = "next_check_time"
+        const val PREF_LAST_CHECK_TIME = "last_check_time"
+        const val UNIQUE_WORK_NAME = "mood_check_worker"
         private const val INITIAL_DELAY_SECS = 10L // Short delay for first run after boot
 
         /**
