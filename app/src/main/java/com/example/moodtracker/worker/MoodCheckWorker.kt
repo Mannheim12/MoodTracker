@@ -1,14 +1,11 @@
 package com.example.moodtracker.worker
 
 import android.app.Notification
-import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.graphics.Color
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.Data
@@ -24,7 +21,6 @@ import com.example.moodtracker.util.DataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
-import java.util.Locale
 import java.util.Random
 import java.util.concurrent.TimeUnit
 
@@ -139,9 +135,6 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
 
     private fun showMoodCheckNotification() {
-        // Create notification channel if needed (required for Android 8.0+)
-        createNotificationChannel()
-
         // Create intent for notification tap
         val intent = Intent(applicationContext, MoodSelectionActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -156,17 +149,16 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         )
 
         // Build the notification
+        // Note: Channel settings (vibration, lights, etc.) are defined in the app class
+        // and don't need to be duplicated here
         val notification = NotificationCompat.Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_mood_tracker)
             .setContentTitle(applicationContext.getString(R.string.notification_title))
             .setContentText(applicationContext.getString(R.string.notification_text))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setCategory(NotificationCompat.CATEGORY_ALARM) // Treated as high-priority
+            .setPriority(NotificationCompat.PRIORITY_HIGH) // For pre-O compatibility
+            .setCategory(NotificationCompat.CATEGORY_ALARM) // Marks as important
             .setContentIntent(pendingIntent)
             .setAutoCancel(true) // Remove when tapped
-            .setVibrate(longArrayOf(0, 500, 250, 500)) // Vibration pattern
-            .setLights(Color.BLUE, 1000, 500) // Flash LED
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC) // Show on lock screen
             .build()
 
         // Get notification manager
@@ -234,25 +226,5 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             ExistingWorkPolicy.REPLACE,
             workRequest
         )
-    }
-
-    // Create notification channel
-    private fun createNotificationChannel() {
-        // No need to check SDK version since our minSdk is 26+
-        val channel = NotificationChannel(
-            Constants.NOTIFICATION_CHANNEL_ID,
-            applicationContext.getString(R.string.app_name),
-            NotificationManager.IMPORTANCE_HIGH // Changed from IMPORTANCE_LOW to HIGH
-        ).apply {
-            description = applicationContext.getString(R.string.notification_text)
-            enableLights(true)
-            lightColor = Color.BLUE
-            enableVibration(true)
-            vibrationPattern = longArrayOf(0, 500, 250, 500)
-            lockscreenVisibility = Notification.VISIBILITY_PUBLIC
-        }
-
-        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
     }
 }

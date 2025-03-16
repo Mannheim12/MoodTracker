@@ -2,7 +2,6 @@ package com.example.moodtracker
 
 import android.Manifest
 import android.content.Context
-import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -230,8 +229,6 @@ class MainActivity : AppCompatActivity() {
         updateButtonStates()
     }
 
-
-
     /**
      * Check if any permissions are missing
      */
@@ -293,39 +290,60 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Handle permission request result
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+
+        if (requestCode == PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
+                // All permissions granted
+                statusText.setText(R.string.permissions_granted)
+            } else {
+                // Some permissions denied
+                statusText.setText(R.string.permissions_required)
+            }
+
+            updateButtonStates()
+        }
+    }
+
     private fun updateDebugInfo() {
         CoroutineScope(Dispatchers.Main).launch {
             val info = StringBuilder()
-
-            // File System Status
-            info.append("FILE SYSTEM STATUS\n")
-            info.append("=================\n")
-            val fileInfo = withContext(Dispatchers.IO) {
-                checkFileSystem()
-            }
-            info.append(fileInfo)
-            info.append("\n\n")
-
-            // Permissions Status
-            info.append("PERMISSIONS STATUS\n")
-            info.append("=================\n")
-            info.append(checkPermissionsStatus())
-            info.append("\n\n")
 
             // Worker Status
             info.append("WORKER STATUS\n")
             info.append("=============\n")
             val workerInfo = withContext(Dispatchers.Default) {
-                checkWorkerStatus()
+                debugWorkerStatus()
             }
             info.append(workerInfo)
+            info.append("\n\n")
+
+            // Permissions Status
+            info.append("PERMISSIONS STATUS\n")
+            info.append("=================\n")
+            info.append(debugPermissionsStatus())
+            info.append("\n\n")
+
+            // File System Status
+            info.append("FILE SYSTEM STATUS\n")
+            info.append("=================\n")
+            val fileInfo = withContext(Dispatchers.IO) {
+                debugFileSystem()
+            }
+            info.append(fileInfo)
             info.append("\n\n")
 
             // Configuration Info
             info.append("CONFIGURATION\n")
             info.append("=============\n")
             val configInfo = withContext(Dispatchers.IO) {
-                checkConfigInfo()
+                debugConfigInfo()
             }
             info.append(configInfo)
 
@@ -334,7 +352,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun checkFileSystem(): String {
+    private fun debugFileSystem(): String {
         val sb = StringBuilder()
 
         // Config file
@@ -388,7 +406,7 @@ class MainActivity : AppCompatActivity() {
         return sb.toString()
     }
 
-    private fun checkPermissionsStatus(): String {
+    private fun debugPermissionsStatus(): String {
         val sb = StringBuilder()
 
         for (permission in REQUIRED_PERMISSIONS) {
@@ -401,12 +419,12 @@ class MainActivity : AppCompatActivity() {
         // Check battery optimization status
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
-        sb.append("\nBattery Optimization Exempt: ${if (isIgnoringBatteryOptimizations) "YES" else "NO"}\n")
+        sb.append("Battery Optimization Exempt: ${if (isIgnoringBatteryOptimizations) "YES" else "NO"}\n")
 
         return sb.toString()
     }
 
-    private fun checkWorkerStatus(): String {
+    private fun debugWorkerStatus(): String {
         val sb = StringBuilder()
 
         // Check if worker is scheduled
@@ -479,7 +497,7 @@ class MainActivity : AppCompatActivity() {
         return sb.toString()
     }
 
-    private fun checkConfigInfo(): String {
+    private fun debugConfigInfo(): String {
         val sb = StringBuilder()
 
         try {
@@ -510,26 +528,5 @@ class MainActivity : AppCompatActivity() {
         }
 
         return sb.toString()
-    }
-
-    // Handle permission request result
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-
-        if (requestCode == PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                // All permissions granted
-                statusText.setText(R.string.permissions_granted)
-            } else {
-                // Some permissions denied
-                statusText.setText(R.string.permissions_required)
-            }
-
-            updateButtonStates()
-        }
     }
 }
