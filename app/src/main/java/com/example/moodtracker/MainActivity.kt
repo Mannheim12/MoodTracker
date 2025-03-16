@@ -53,14 +53,16 @@ class MainActivity : AppCompatActivity() {
         private val REQUIRED_PERMISSIONS = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             arrayOf(
                 Manifest.permission.POST_NOTIFICATIONS,
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                // Commenting out storage permissions until interface issues are resolved
+                // Manifest.permission.READ_EXTERNAL_STORAGE,
+                // Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 Manifest.permission.VIBRATE
             )
         } else {
             arrayOf(
-                Manifest.permission.READ_EXTERNAL_STORAGE,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                // Commenting out storage permissions until interface issues are resolved
+                // Manifest.permission.READ_EXTERNAL_STORAGE,
+                // Manifest.permission.WRITE_EXTERNAL_STORAGE,
                 Manifest.permission.VIBRATE
             )
         }
@@ -140,15 +142,14 @@ class MainActivity : AppCompatActivity() {
         // Start auto-updates of debug info
         handler.post(updateRunnable)
 
-        // Update debug info immediately
         updateDebugInfo()
     }
 
     private fun triggerMoodCheckNow() {
         try {
-            // Direct call - no coroutine needed since schedule() is not suspending
             MoodCheckWorker.schedule(applicationContext, immediate = true)
 
+            // Update UI to give feedback
             statusText.setText(R.string.check_triggered)
             // Reset status text after 3 seconds
             handler.postDelayed({
@@ -158,6 +159,8 @@ class MainActivity : AppCompatActivity() {
             statusText.setText(R.string.trigger_error)
             e.printStackTrace()
         }
+
+        updateDebugInfo()
     }
 
     private fun updateDebugInfo() {
