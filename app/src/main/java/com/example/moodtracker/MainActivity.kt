@@ -164,18 +164,11 @@ class MainActivity : AppCompatActivity() {
      * Start mood tracking by scheduling a worker
      */
     private fun startMoodTracking() {
-        // Schedule the mood tracking via WorkManager
-        MoodCheckWorker.schedule(this, true)
+        // Schedule the mood tracking via WorkManager with standard delay
+        MoodCheckWorker.scheduleCheck(this, isImmediate = false)
 
         // Update UI
         statusText.setText(R.string.service_running)
-
-        // Save tracking state
-        getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean("was_tracking", true)
-            .apply()
-
         updateButtonStates()
     }
 
@@ -184,7 +177,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun triggerMoodCheckNow() {
         try {
-            MoodCheckWorker.schedule(applicationContext, immediate = true)
+            MoodCheckWorker.scheduleCheck(applicationContext, isImmediate = true)
 
             // Update UI to give feedback
             statusText.setText(R.string.check_triggered)
@@ -208,14 +201,13 @@ class MainActivity : AppCompatActivity() {
         WorkManager.getInstance(applicationContext).cancelUniqueWork(MoodCheckWorker.UNIQUE_WORK_NAME)
 
         // Update SharedPreferences
-        getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
+        getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
             .edit()
-            .putBoolean("was_tracking", false)
+            .putBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
             .apply()
 
         // Update UI
         statusText.setText(R.string.tracking_stopped)
-
         updateButtonStates()
     }
 

@@ -214,18 +214,21 @@ class MoodSelectionActivity : AppCompatActivity() {
         // Record the mood and schedule next check
         lifecycleScope.launch {
             try {
+                // Get the hourly ID that was saved by the worker
+                val prefs = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
+                val hourlyId = prefs.getString(MoodCheckWorker.PREF_HOURLY_ID, null)
+
                 // Record the mood in background
                 withContext(Dispatchers.IO) {
-                    dataManager.addMoodEntry(moodName)
+                    // If we have a valid hourly ID, use it when recording
+                    if (hourlyId != null) {
+                        dataManager.addMoodEntry(moodName, hourlyId)
+                    } else {
+                        // Fallback to generating the ID if none was provided
+                        dataManager.addMoodEntry(moodName)
+                    }
                 }
 
-                // Save tracking state
-                getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
-                    .edit()
-                    .putBoolean("was_tracking", true)
-                    .apply()
-
-                // MoodCheckWorker will schedule the next mood check
             } catch (e: Exception) {
                 // Log error but don't crash
                 e.printStackTrace()
