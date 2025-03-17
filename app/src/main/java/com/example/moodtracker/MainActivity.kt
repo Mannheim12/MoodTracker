@@ -10,6 +10,8 @@ import android.os.Looper
 import android.os.PowerManager
 import android.widget.Button
 import android.widget.TextView
+import android.widget.ScrollView
+import android.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -40,6 +42,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var stopTrackingButton: Button
     private lateinit var requestPermissionsButton: Button
     private lateinit var refreshButton: Button
+    private lateinit var viewDatabaseButton: Button
     private lateinit var debugInfoText: TextView
 
     // Handler for periodic UI updates
@@ -78,8 +81,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        configManager = ConfigManager()
-        dataManager = DataManager()
+        configManager = ConfigManager(this)
+        dataManager = DataManager(this)
 
         // Initialize UI elements
         statusText = findViewById(R.id.status_text)
@@ -100,6 +103,11 @@ class MainActivity : AppCompatActivity() {
 
         requestPermissionsButton.setOnClickListener {
             requestPermissions()
+        }
+
+        viewDatabaseButton = findViewById(R.id.view_database_button)
+        viewDatabaseButton.setOnClickListener {
+            viewDatabase()
         }
 
         refreshButton.setOnClickListener {
@@ -352,58 +360,62 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun debugFileSystem(): String {
+    private suspend fun debugFileSystem(): String = withContext(Dispatchers.IO) {
         val sb = StringBuilder()
 
-        // Config file
-        val configFile = configManager.getConfigFile()
-        sb.append("Config File: ")
-        if (configFile.exists()) {
-            sb.append("EXISTS\n")
-            sb.append("Path: ${configFile.absolutePath}\n")
-            val lastModified = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                .format(Date(configFile.lastModified()))
-            sb.append("Last Modified: $lastModified\n")
-            sb.append("Size: ${configFile.length()} bytes\n")
-        } else {
-            sb.append("MISSING\n")
-            sb.append("Expected Path: ${configFile.absolutePath}\n")
+        // Database stats
+        sb.append("Database: ")
+        try {
+            val entryCount = dataManager.getEntryCount()
+            sb.append("$entryCount entries\n")
+
+            // Most recent entry
+            val recentEntry = dataManager.getMostRecentEntry()
+            if (recentEntry != null) {
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                val formattedDate = dateFormat.format(Date(recentEntry.timestamp))
+                sb.append("Latest entry: ${recentEntry.id} at $formattedDate (${recentEntry.moodName})\n")
+            } else {
+                sb.append("No entries yet\n")
+            }
+
+        } catch (e: Exception) {
+            sb.append("Error reading database: ${e.message}\n")
         }
 
         sb.append("\n")
 
-        // Data file
-        val dataFile = dataManager.getDataFile()
-        sb.append("Data File: ")
-        if (dataFile.exists()) {
-            sb.append("EXISTS\n")
-            sb.append("Path: ${dataFile.absolutePath}\n")
-            val lastModified = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-                .format(Date(dataFile.lastModified()))
-            sb.append("Last Modified: $lastModified\n")
-            sb.append("Size: ${dataFile.length()} bytes\n")
+        // CSV Export info
+        sb.append("CSV Export: ")
+        val exportPath = dataManager.getExportPath()
+        sb.append("$exportPath\n")
+        sb.append("Exports after each mood entry\n")
 
-            // Count entries
-            try {
-                val lines = dataFile.readLines()
-                sb.append("Entries: ${lines.size - 1} (excluding header)\n") // Subtract header row
-            } catch (e: Exception) {
-                sb.append("Error reading entries: ${e.message}\n")
-            }
-        } else {
-            sb.append("MISSING\n")
-            sb.append("Expected Path: ${dataFile.absolutePath}\n")
+        // SharedPreferences info
+        sb.append("\nConfiguration: ")
+        try {
+            val config = configManager.loadConfig()
+            sb.append("Min interval: ${config["min_interval_minutes"]} minutes\n")
+            sb.append("Max interval: ${config["max_interval_minutes"]} minutes\n")
+            sb.append("Retry window: ${config["retry_window_minutes"]} minutes\n")
+
+            // Count moods by category
+            val moods = configManager.loadMoods()
+            val positiveCount = moods.count { it.dimension1 == "Positive" }
+            val neutralCount = moods.count { it.dimension1 == "Neutral" }
+            val negativeCount = moods.count { it.dimension1 == "Negative" }
+            val otherCount = moods.count { it.category == "Other" }
+
+            sb.append("\nConfigured moods: ${moods.size} total\n")
+            sb.append("- Positive: $positiveCount\n")
+            sb.append("- Neutral: $neutralCount\n")
+            sb.append("- Negative: $negativeCount\n")
+            sb.append("- Other: $otherCount\n")
+        } catch (e: Exception) {
+            sb.append("Error reading configuration: ${e.message}\n")
         }
 
-        // Documents directory writable?
-        val documentsDir = configFile.parentFile
-        if (documentsDir != null) {
-            sb.append("\nDocuments Directory: ${documentsDir.absolutePath}\n")
-            sb.append("Writable: ${documentsDir.canWrite()}\n")
-            sb.append("Free Space: ${documentsDir.freeSpace / (1024 * 1024)} MB\n")
-        }
-
-        return sb.toString()
+        return@withContext sb.toString()
     }
 
     private fun debugPermissionsStatus(): String {
@@ -528,5 +540,54 @@ class MainActivity : AppCompatActivity() {
         }
 
         return sb.toString()
+    }
+
+    private fun viewDatabase() {
+        // Launch in a coroutine
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Get database entries
+                val entries = withContext(Dispatchers.IO) {
+                    dataManager.getAllEntries()
+                }
+
+                if (entries.isEmpty()) {
+                    // Show message if database is empty
+                    statusText.text = getString(R.string.database_is_empty)
+                    return@launch
+                }
+
+                // Create a simple display text for the entries
+                val entriesText = buildString {
+                    // Format each entry
+                    for (entry in entries) {
+                        val date = Date(entry.timestamp)
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
+                        append("ID: ${entry.id} | ${dateFormat.format(date)} | ${entry.moodName}\n")
+                    }
+                }
+
+                // Show in an AlertDialog with ScrollView
+                val scrollView = ScrollView(this@MainActivity)
+                val textView = TextView(this@MainActivity).apply {
+                    text = entriesText
+                    setPadding(20, 20, 20, 20)
+                    textSize = 14f
+                }
+
+                scrollView.addView(textView)
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(getString(R.string.database_entries, entries.size))
+                    .setView(scrollView)
+                    .setPositiveButton(R.string.close, null)
+                    .show()
+
+            } catch (e: Exception) {
+                statusText.text = getString(R.string.error_loading_database, e.message)
+                e.printStackTrace()
+            }
+        }
     }
 }

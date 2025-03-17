@@ -74,8 +74,8 @@ class MoodSelectionActivity : AppCompatActivity() {
             )
         }
 
-        configManager = ConfigManager()
-        dataManager = DataManager()
+        configManager = ConfigManager(this)
+        dataManager = DataManager(this)
 
         gridLayout = findViewById(R.id.mood_grid)
         timeTextView = findViewById(R.id.time_text)

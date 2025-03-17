@@ -19,6 +19,7 @@
     <string name="stop_tracking">Stop Tracking</string>
     <string name="request_permissions">Request Permissions</string>
     <string name="refresh">Refresh</string>
+    <string name="view_database">View Database</string>
 
     <!-- Status messages -->
     <string name="permissions_needed">Permissions needed to start tracking.</string>
@@ -30,4 +31,10 @@
     <string name="check_triggered">Mood check triggered!</string>
     <string name="trigger_error">Error triggering check</string>
     <string name="debug_info_title">Debug Information</string>
+
+    <!-- Database viewer messages -->
+    <string name="database_is_empty">Database is empty</string>
+    <string name="error_loading_database">Error loading database: %1$s</string>
+    <string name="database_entries">Database Entries (%1$d)</string>
+    <string name="close">Close</string>
 </resources>

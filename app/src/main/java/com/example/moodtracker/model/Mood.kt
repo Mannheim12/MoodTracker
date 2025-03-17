@@ -1,6 +1,9 @@
 package com.example.moodtracker.model
 
 import android.graphics.Color
+import androidx.room.Entity
+import androidx.room.Index
+import androidx.room.PrimaryKey
 
 // Data class to represent a mood
 data class Mood(
@@ -21,17 +24,19 @@ data class Mood(
     }
 }
 
-// Data class to represent a mood entry in the CSV
+// Data class to represent a mood entry in the database
+@Entity(tableName = "mood_entries", indices = [Index(value = ["id"], unique = true)])
 data class MoodEntry(
-    val id: String,          // YYYYMMDDHH format
-    val timestamp: Long,     // Exact time recorded
-    val moodName: String     // The selected mood
+    @PrimaryKey val id: String,          // YYYYMMDDHH format
+    val timestamp: Long,                 // Exact time recorded
+    val moodName: String                 // The selected mood
 )
 
-// Constants for file paths
+// Constants for file paths and other settings
 object Constants {
     const val CONFIG_FILE_NAME = "mood_tracker.config"
     const val DATA_FILE_NAME = "mood_tracker_data.csv"
+    const val EXPORT_DIRECTORY_NAME = "MoodTracker" // For Downloads folder
     const val NOTIFICATION_CHANNEL_ID = "mood_tracker_channel"
     const val NOTIFICATION_ID = 1001
     const val WORKER_TAG = "mood_check_worker"

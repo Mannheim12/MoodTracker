@@ -1,28 +1,35 @@
 package com.example.moodtracker.util
 
+import android.content.Context
 import android.os.Environment
+import com.example.moodtracker.data.AppDatabase
 import com.example.moodtracker.model.Constants
+import com.example.moodtracker.model.MoodEntry
+import java.io.BufferedWriter
 import java.io.File
-import java.io.FileReader
-import java.io.FileWriter
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import org.apache.commons.csv.CSVFormat
-import org.apache.commons.csv.CSVPrinter
-import org.apache.commons.csv.CSVParser
-import java.io.BufferedReader
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Handles reading and writing mood data to/from CSV
+ * Handles reading and writing mood data using Room database and CSV export
  */
-class DataManager {
+class DataManager(private val context: Context) {
 
     private val hourIdFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
     private val fullDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     // CSV header columns
-    private val csvHeaders = arrayOf("id", "timestamp", "mood")
+    private val csvHeaders = "id,timestamp,mood\n"
+
+    // Get the Room database instance
+    private val database: AppDatabase by lazy {
+        AppDatabase.getInstance(context)
+    }
 
     /**
      * Generate an hour ID for a given timestamp
@@ -35,117 +42,21 @@ class DataManager {
     }
 
     /**
-     * Get the CSV data file
-     */
-    fun getDataFile(): File {
-        val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        if (!documentsDir.exists()) {
-            documentsDir.mkdirs()
-        }
-        return File(documentsDir, Constants.DATA_FILE_NAME)
-    }
-
-    /**
-     * Add a mood entry to the CSV
+     * Add a mood entry to the database and export to CSV
      * @param moodName The mood to record
      * @param hourId Optional hour ID. If not provided, uses current hour.
      * @param timestamp Optional timestamp. If not provided, uses current time.
      */
-    fun addMoodEntry(moodName: String, hourId: String? = null, timestamp: Long = System.currentTimeMillis()) {
+    suspend fun addMoodEntry(moodName: String, hourId: String? = null, timestamp: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         // Use provided hour ID or generate from current time
         val id = hourId ?: generateHourId(timestamp)
 
-        // Safety check: Only write to our specific CSV file
-        val dataFile = getDataFile()
-        if (!isValidMoodTrackerFile(dataFile)) {
-            return
-        }
+        // Create entry and save to database
+        val entry = MoodEntry(id, timestamp, moodName)
+        database.moodEntryDao().insertOrUpdateEntry(entry)
 
-        try {
-            if (!dataFile.exists()) {
-                // Create new file with headers
-                createNewCsvFile(dataFile, id, timestamp, moodName)
-                return
-            }
-
-            // File exists, update or append entry
-            updateOrAppendMoodEntry(dataFile, id, timestamp, moodName)
-
-        } catch (e: Exception) {
-            // Handle error - in production app, would log this
-        }
-    }
-
-    /**
-     * Create a new CSV file with headers and first entry
-     */
-    private fun createNewCsvFile(file: File, hourId: String, timestamp: Long, moodName: String) {
-        try {
-            FileWriter(file).use { writer ->
-                val csvFormat = CSVFormat.DEFAULT.builder()
-                    .setHeader(*csvHeaders)
-                    .build()
-                val csvPrinter = CSVPrinter(writer, csvFormat)
-                csvPrinter.printRecord(hourId, fullDateFormat.format(Date(timestamp)), moodName)
-                csvPrinter.flush()
-            }
-        } catch (e: Exception) {
-            // Handle error
-        }
-    }
-
-    /**
-     * Update an existing entry or append a new one
-     */
-    private fun updateOrAppendMoodEntry(file: File, hourId: String, timestamp: Long, moodName: String) {
-        try {
-            // Safety check
-            if (!isValidMoodTrackerFile(file)) {
-                return
-            }
-
-            val lines = mutableListOf<String>()
-            var foundHeader = false
-            var updatedExisting = false
-
-            // Read existing file
-            BufferedReader(FileReader(file)).use { reader ->
-                var line: String?
-                while (reader.readLine().also { line = it } != null) {
-                    val currentLine = line ?: continue
-
-                    if (!foundHeader) {
-                        // Keep header line
-                        lines.add(currentLine)
-                        foundHeader = true
-                        continue
-                    }
-
-                    // Check if line starts with our hour ID
-                    if (currentLine.startsWith(hourId) || currentLine.startsWith("\"$hourId\"")) {
-                        // Replace this line
-                        lines.add("$hourId,${fullDateFormat.format(Date(timestamp))},$moodName")
-                        updatedExisting = true
-                    } else {
-                        // Keep existing line
-                        lines.add(currentLine)
-                    }
-                }
-            }
-
-            // If no existing entry was updated, append new entry
-            if (!updatedExisting) {
-                lines.add("$hourId,${fullDateFormat.format(Date(timestamp))},$moodName")
-            }
-
-            // Write back to file
-            FileWriter(file).use { writer ->
-                writer.write(lines.joinToString("\n"))
-            }
-
-        } catch (e: Exception) {
-            // Handle error
-        }
+        // Export to CSV
+        exportToCsv()
     }
 
     /**
@@ -153,69 +64,77 @@ class DataManager {
      * @param hourId The hour ID to check
      * @return true if an entry exists, false otherwise
      */
-    fun hasEntryForHour(hourId: String): Boolean {
-        val dataFile = getDataFile()
+    suspend fun hasEntryForHour(hourId: String): Boolean = withContext(Dispatchers.IO) {
+        return@withContext database.moodEntryDao().hasEntryForHour(hourId)
+    }
 
-        if (!dataFile.exists()) {
-            return false
-        }
-
+    /**
+     * Export all entries to a CSV file in the Downloads/MoodTracker folder
+     */
+    private suspend fun exportToCsv() = withContext(Dispatchers.IO) {
         try {
-            // Simple check for the hour ID in the file
-            BufferedReader(FileReader(dataFile)).use { reader ->
-                var line: String?
-                // Skip header
-                reader.readLine()
+            // Get all entries from Room
+            val entries = database.moodEntryDao().getAllEntries()
 
-                while (reader.readLine().also { line = it } != null) {
-                    val currentLine = line ?: continue
-                    if (currentLine.startsWith(hourId) || currentLine.startsWith("\"$hourId\"")) {
-                        return true
+            // Get the appropriate directory
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val moodTrackerDir = File(downloadsDir, Constants.EXPORT_DIRECTORY_NAME)
+
+            // Create directory if it doesn't exist
+            if (!moodTrackerDir.exists()) {
+                moodTrackerDir.mkdirs()
+            }
+
+            // Create CSV file
+            val csvFile = File(moodTrackerDir, Constants.DATA_FILE_NAME)
+
+            // Write to file
+            FileOutputStream(csvFile).use { outputStream ->
+                BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
+                    writer.write(csvHeaders)
+
+                    for (entry in entries) {
+                        val formattedDate = fullDateFormat.format(Date(entry.timestamp))
+                        writer.write("${entry.id},${formattedDate},${entry.moodName}\n")
                     }
+
+                    writer.flush()
                 }
             }
-            return false
-
         } catch (e: Exception) {
-            // If there's an error reading the file, assume no entry exists
-            return false
+            // Handle error
+            e.printStackTrace()
         }
     }
 
     /**
-     * Safety check to ensure we only write to our specific CSV file
+     * For debugging: get number of entries in database
      */
-    private fun isValidMoodTrackerFile(file: File): Boolean {
-        // Check file name
-        if (file.name != Constants.DATA_FILE_NAME) {
-            return false
-        }
-
-        // Check that it's in the Documents directory
-        val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        if (!file.absolutePath.startsWith(documentsDir.absolutePath)) {
-            return false
-        }
-
-        // If file exists, check that it has the expected header format
-        if (file.exists() && file.length() > 0) {
-            try {
-                BufferedReader(FileReader(file)).use { reader ->
-                    val firstLine = reader.readLine() ?: return true // Empty file is valid
-
-                    // Very basic check for our headers
-                    return firstLine.contains("id") &&
-                            firstLine.contains("timestamp") &&
-                            firstLine.contains("mood")
-                }
-            } catch (e: Exception) {
-                // If can't read, assume it's valid and let the write operation handle errors
-                return true
-            }
-        }
-
-        return true
+    suspend fun getEntryCount(): Int = withContext(Dispatchers.IO) {
+        return@withContext database.moodEntryDao().getAllEntries().size
     }
 
+    /**
+     * For debugging: get the most recent entry
+     */
+    suspend fun getMostRecentEntry(): MoodEntry? = withContext(Dispatchers.IO) {
+        val entries = database.moodEntryDao().getAllEntries()
+        return@withContext entries.maxByOrNull { it.timestamp }
+    }
 
+    /**
+     * Get the path where CSV is exported for display purposes
+     */
+    fun getExportPath(): String {
+        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        return "${downloadsDir.absolutePath}/${Constants.EXPORT_DIRECTORY_NAME}/${Constants.DATA_FILE_NAME}"
+    }
+
+    /**
+     * Get all mood entries
+     * @return List of all mood entries
+     */
+    suspend fun getAllEntries(): List<MoodEntry> = withContext(Dispatchers.IO) {
+        return@withContext database.moodEntryDao().getAllEntries()
+    }
 }

@@ -75,6 +75,13 @@
                 android:layout_height="wrap_content"
                 android:text="@string/refresh"
                 android:layout_marginVertical="4dp" />
+
+            <Button
+                android:id="@+id/view_database_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/view_database"
+                android:layout_marginVertical="4dp" />
         </LinearLayout>
 
         <TextView

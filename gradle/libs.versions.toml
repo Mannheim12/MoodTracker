@@ -25,6 +25,7 @@ junit = "4.13.2"
 androidx-test-junit = "1.1.5"
 espresso = "3.5.1"
 arch-core-testing = "2.2.0"  # Corrected version for androidx.arch.core:core-testing
+ksp = "1.9.22-1.0.16" # Match this with your kotlin version (1.9.22)
 
 [libraries]
 # Android core
@@ -89,3 +90,4 @@ androidx-core-testing = { group = "androidx.arch.core", name = "core-testing", v
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 kotlin-parcelize = { id = "org.jetbrains.kotlin.plugin.parcelize", version.ref = "kotlin" }
+kotlin-ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }

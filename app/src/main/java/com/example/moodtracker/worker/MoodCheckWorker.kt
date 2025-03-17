@@ -29,8 +29,8 @@ import java.util.concurrent.TimeUnit
  */
 class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
-    private val dataManager = DataManager()
-    private val configManager = ConfigManager()
+    private val dataManager = DataManager(context)
+    private val configManager = ConfigManager(context)
     private val random = Random()
     private val prefs: SharedPreferences = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
@@ -112,11 +112,6 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         // Load configuration values
         loadConfigValues()
 
-        // Only check for missed entries on regular checks
-        if (!isImmediate && !isRetry) {
-            checkForMissedEntries()
-        }
-
         // Record this check time in shared preferences
         prefs.edit().putLong(PREF_LAST_CHECK_TIME, System.currentTimeMillis()).apply()
 
@@ -174,26 +169,6 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         minIntervalMinutes = config["min_interval_minutes"] ?: Constants.MIN_INTERVAL_MINUTES
         maxIntervalMinutes = config["max_interval_minutes"] ?: Constants.MAX_INTERVAL_MINUTES
         retryWindowMinutes = config["retry_window_minutes"] ?: Constants.RETRY_WINDOW_MINUTES
-    }
-
-    // Check for missed entries and record them
-    private suspend fun checkForMissedEntries() = withContext(Dispatchers.IO) {
-        val calendar = Calendar.getInstance()
-        val currentHourId = dataManager.generateHourId(calendar.timeInMillis)
-
-        // Check the last 24 hours for missed entries
-        for (i in 1..24) {
-            calendar.add(Calendar.HOUR_OF_DAY, -1)
-            val hourId = dataManager.generateHourId(calendar.timeInMillis)
-
-            // Skip the current hour
-            if (hourId == currentHourId) continue
-
-            // If there's no entry for this hour, add it as "Asleep"
-            if (!dataManager.hasEntryForHour(hourId)) {
-                dataManager.addMoodEntry("Asleep", hourId)
-            }
-        }
     }
 
     // Schedule the next mood check
