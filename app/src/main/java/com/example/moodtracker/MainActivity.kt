@@ -29,6 +29,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import android.view.View
 
 /**
  * Main entry point for the application - enhanced with debugging info
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var refreshButton: Button
     private lateinit var viewDatabaseButton: Button
     private lateinit var debugInfoText: TextView
+    private lateinit var batteryOptimizationText: TextView
 
     // Handler for periodic UI updates
     private val handler = Handler(Looper.getMainLooper())
@@ -86,6 +88,7 @@ class MainActivity : AppCompatActivity() {
 
         // Initialize UI elements
         statusText = findViewById(R.id.status_text)
+        batteryOptimizationText = findViewById(R.id.battery_optimization_text)
         toggleTrackingButton = findViewById(R.id.toggle_tracking_button)
         stopTrackingButton = findViewById(R.id.stop_tracking_button)
         requestPermissionsButton = findViewById(R.id.request_permissions_button)
@@ -118,13 +121,15 @@ class MainActivity : AppCompatActivity() {
         // Initial UI update
         updateDebugInfo()
         updateButtonStates()
+        updateBatteryOptimizationStatus()
     }
 
     override fun onResume() {
         super.onResume()
-        // Update debug info and button states when returning to the app
+        // Update UI when returning to the app
         updateDebugInfo()
         updateButtonStates()
+        updateBatteryOptimizationStatus()
 
         // Start periodic updates
         handler.post(updateRunnable)
@@ -146,18 +151,19 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Check if tracking is currently active
-        isTrackingActive { isActive ->
-            if (isActive) {
-                // If active, just trigger an immediate check
-                triggerMoodCheckNow()
-            } else {
-                // If not active, start tracking
-                startMoodTracking()
-            }
-            // Update button states after action
-            updateButtonStates()
+        // Direct check from SharedPreferences
+        val isActive = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
+            .getBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
+
+        if (isActive) {
+            // If active, just trigger an immediate check
+            triggerMoodCheckNow()
+        } else {
+            // If not active, start tracking
+            startMoodTracking()
         }
+        // Update button states after action
+        updateButtonStates()
     }
 
     /**
@@ -242,40 +248,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Check if mood tracking is currently active
-     */
-    private fun isTrackingActive(callback: (Boolean) -> Unit) {
-        val workManager = WorkManager.getInstance(applicationContext)
-        val workInfosFuture = workManager.getWorkInfosByTag(Constants.WORKER_TAG)
-
-        // Use a coroutine to handle this asynchronously
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                val workInfos = withContext(Dispatchers.IO) {
-                    workInfosFuture.get()
-                }
-
-                // Check if any worker is scheduled or running
-                val isActive = workInfos.any {
-                    it.state == WorkInfo.State.RUNNING ||
-                            it.state == WorkInfo.State.ENQUEUED
-                }
-
-                // Also check the SharedPreferences flag
-                val prefs = getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
-                val wasTracking = prefs.getBoolean("was_tracking", false)
-
-                // Consider active if either condition is true
-                callback(isActive || wasTracking)
-            } catch (e: Exception) {
-                e.printStackTrace()
-                // Assume not active if there's an error
-                callback(false)
-            }
-        }
-    }
-
-    /**
      * Update the text and enabled state of all buttons based on current app state
      */
     private fun updateButtonStates() {
@@ -283,11 +255,20 @@ class MainActivity : AppCompatActivity() {
         val allPermissionsGranted = checkPermissions()
         requestPermissionsButton.isEnabled = !allPermissionsGranted
 
-        // Update tracking buttons state
-        isTrackingActive { isActive ->
-            toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
-            stopTrackingButton.isEnabled = isActive
-        }
+        // Update tracking button state
+        val isActive = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
+            .getBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
+        toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
+        stopTrackingButton.isEnabled = isActive
+    }
+
+    /**
+     * Update the battery optimization state on app startup or resume
+     */
+    private fun updateBatteryOptimizationStatus() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
+        batteryOptimizationText.visibility = if (isIgnoringBatteryOptimizations) View.GONE else View.VISIBLE
     }
 
     // Handle permission request result

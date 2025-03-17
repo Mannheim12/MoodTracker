@@ -12,6 +12,7 @@
     <string name="notification_text">Time to record your current mood</string>
     <string name="notification_channel_name">Mood Check Reminders</string>
     <string name="service_running">Mood Tracker is running in the background.</string>
+    <string name="battery_optimization_warning">For reliable mood checks, please exclude this app from battery optimization</string>
 
     <!-- Updated and new button texts -->
     <string name="start_tracking">Start Tracking</string>
