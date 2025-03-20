@@ -124,9 +124,13 @@ class MainActivity : AppCompatActivity() {
         updateBatteryOptimizationStatus()
     }
 
+    /**
+     * Runs when the app is resumed to ensure proper state
+     */
     override fun onResume() {
         super.onResume()
         // Update UI when returning to the app
+        MoodCheckWorker.checkTrackingConsistency(this)
         updateDebugInfo()
         updateButtonStates()
         updateBatteryOptimizationStatus()
@@ -151,7 +155,10 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Direct check from SharedPreferences
+        // Check tracking consistency first
+        MoodCheckWorker.checkTrackingConsistency(this)
+
+        // Get current state
         val isActive = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
             .getBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
 
@@ -162,6 +169,7 @@ class MainActivity : AppCompatActivity() {
             // If not active, start tracking
             startMoodTracking()
         }
+
         // Update button states after action
         updateButtonStates()
     }
@@ -170,8 +178,8 @@ class MainActivity : AppCompatActivity() {
      * Start mood tracking by scheduling a worker
      */
     private fun startMoodTracking() {
-        // Schedule the mood tracking via WorkManager with standard delay
-        MoodCheckWorker.scheduleCheck(this, isImmediate = false)
+        // Start tracking with standard delay
+        MoodCheckWorker.startTracking(this, isImmediate = false)
 
         // Update UI
         statusText.setText(R.string.service_running)
@@ -183,7 +191,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun triggerMoodCheckNow() {
         try {
-            MoodCheckWorker.scheduleCheck(applicationContext, isImmediate = true)
+            MoodCheckWorker.startTracking(this, isImmediate = true)
 
             // Update UI to give feedback
             statusText.setText(R.string.check_triggered)
@@ -203,14 +211,7 @@ class MainActivity : AppCompatActivity() {
      * Stop all mood tracking by canceling all workers
      */
     private fun stopTracking() {
-        // Cancel the unique work
-        WorkManager.getInstance(applicationContext).cancelUniqueWork(MoodCheckWorker.UNIQUE_WORK_NAME)
-
-        // Update SharedPreferences
-        getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
-            .apply()
+        MoodCheckWorker.stopTracking(this)
 
         // Update UI
         statusText.setText(R.string.tracking_stopped)
@@ -307,13 +308,13 @@ class MainActivity : AppCompatActivity() {
 
             // Permissions Status
             info.append("PERMISSIONS STATUS\n")
-            info.append("=================\n")
+            info.append("==================\n")
             info.append(debugPermissionsStatus())
             info.append("\n\n")
 
             // File System Status
             info.append("FILE SYSTEM STATUS\n")
-            info.append("=================\n")
+            info.append("==================\n")
             val fileInfo = withContext(Dispatchers.IO) {
                 debugFileSystem()
             }
@@ -359,34 +360,9 @@ class MainActivity : AppCompatActivity() {
         sb.append("\n")
 
         // CSV Export info
-        sb.append("CSV Export: ")
+        sb.append("CSV Export Path: ")
         val exportPath = dataManager.getExportPath()
         sb.append("$exportPath\n")
-        sb.append("Exports after each mood entry\n")
-
-        // SharedPreferences info
-        sb.append("\nConfiguration: ")
-        try {
-            val config = configManager.loadConfig()
-            sb.append("Min interval: ${config["min_interval_minutes"]} minutes\n")
-            sb.append("Max interval: ${config["max_interval_minutes"]} minutes\n")
-            sb.append("Retry window: ${config["retry_window_minutes"]} minutes\n")
-
-            // Count moods by category
-            val moods = configManager.loadMoods()
-            val positiveCount = moods.count { it.dimension1 == "Positive" }
-            val neutralCount = moods.count { it.dimension1 == "Neutral" }
-            val negativeCount = moods.count { it.dimension1 == "Negative" }
-            val otherCount = moods.count { it.category == "Other" }
-
-            sb.append("\nConfigured moods: ${moods.size} total\n")
-            sb.append("- Positive: $positiveCount\n")
-            sb.append("- Neutral: $neutralCount\n")
-            sb.append("- Negative: $negativeCount\n")
-            sb.append("- Other: $otherCount\n")
-        } catch (e: Exception) {
-            sb.append("Error reading configuration: ${e.message}\n")
-        }
 
         return@withContext sb.toString()
     }

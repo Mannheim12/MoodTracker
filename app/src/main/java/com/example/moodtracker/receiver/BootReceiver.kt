@@ -21,13 +21,17 @@ class BootReceiver : BroadcastReceiver() {
             // Use a coroutine to schedule work
             CoroutineScope(Dispatchers.Default).launch {
                 try {
-                    // Use scheduleCheck with isBoot=true
-                    // It will internally check if tracking was active
-                    MoodCheckWorker.scheduleCheck(
-                        context.applicationContext,
-                        isImmediate = false,
-                        isBoot = true
-                    )
+                    // Check if tracking was active before reboot
+                    val prefs = context.getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
+                    val wasTracking = prefs.getBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
+
+                    if (wasTracking) {
+                        // Resume tracking if it was active before reboot
+                        MoodCheckWorker.startTracking(
+                            context.applicationContext,
+                            isImmediate = false
+                        )
+                    }
                 } finally {
                     // Must call finish() so the BroadcastReceiver can be recycled
                     pendingResult.finish()

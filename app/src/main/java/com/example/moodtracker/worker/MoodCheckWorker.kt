@@ -7,7 +7,6 @@ import android.content.Intent
 import android.content.SharedPreferences
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
-import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -19,17 +18,18 @@ import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import java.util.Random
+import java.util.Calendar
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.TimeUnit
 
 /**
  * Worker class that handles mood check scheduling and notifications
+ * Each worker schedules the next worker with a random interval and shows a notification
+ * that persists until the next check.
  */
 class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
-    private val configManager = ConfigManager(context)
-    private val dataManager = DataManager(context)
-    private val random = Random()
+    private val dataManager = DataManager(applicationContext)
     private val prefs: SharedPreferences = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
     companion object {
@@ -38,93 +38,194 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         const val PREF_WAS_TRACKING = "was_tracking"
         const val PREF_NEXT_CHECK_TIME = "next_check_time"
         const val PREF_LAST_CHECK_TIME = "last_check_time"
-        const val PREF_LAST_NOTIFICATION_ID = "last_notification_id"
         const val PREF_HOURLY_ID = "hourly_id" // ID for the current hour in format YYYYMMDDHH
         const val UNIQUE_WORK_NAME = "mood_check_worker"
-        private const val INITIAL_DELAY_SECS = 10L // Short delay for first run after boot
 
         /**
-         * Schedule the mood check worker
-         * This is a placeholder that will be expanded with full scheduling logic
+         * Initiates or immediately triggers mood tracking
+         * @param context Application context
+         * @param isImmediate If true, shows notification immediately
          */
-        fun scheduleCheck(
-            context: Context,
-            isImmediate: Boolean = false,
-            isBoot: Boolean = false
-        ) {
-            val workManager = WorkManager.getInstance(context)
-            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-
-            // For boot recovery, check if tracking was active
-            if (isBoot && !prefs.getBoolean(PREF_WAS_TRACKING, false)) {
-                return
-            }
-
+        fun startTracking(context: Context, isImmediate: Boolean = false) {
             // Cancel any existing work
-            workManager.cancelUniqueWork(UNIQUE_WORK_NAME)
+            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
-            // Simple delay logic (will be replaced with full scheduling algorithm)
-            val delayMillis = when {
-                isImmediate -> 0L
-                isBoot -> {
-                    val nextCheckFromPrefs = prefs.getLong(PREF_NEXT_CHECK_TIME, 0)
-                    val now = System.currentTimeMillis()
+            // Calculate initial delay
+            val delayMillis = if (isImmediate) 0L else calculateNextInterval(context)
 
-                    if (nextCheckFromPrefs > now + 60000) {
-                        nextCheckFromPrefs - now
-                    } else {
-                        60000L
-                    }
-                }
-                else -> {
-                    // 1 minute for testing - TO BE REPLACED with full scheduling algorithm
-                    60000L
-                }
-            }
-
-            // Update SharedPreferences
+            // Update tracking state
+            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             val now = System.currentTimeMillis()
             prefs.edit()
                 .putBoolean(PREF_WAS_TRACKING, true)
                 .putLong(PREF_NEXT_CHECK_TIME, now + delayMillis)
                 .apply()
 
-            // Create work request
+            // Schedule the work
             val workRequest = OneTimeWorkRequestBuilder<MoodCheckWorker>()
                 .setInitialDelay(delayMillis, TimeUnit.MILLISECONDS)
                 .addTag(Constants.WORKER_TAG)
                 .build()
 
-            // Enqueue as unique work
-            workManager.enqueueUniqueWork(
+            WorkManager.getInstance(context).enqueueUniqueWork(
                 UNIQUE_WORK_NAME,
                 ExistingWorkPolicy.REPLACE,
                 workRequest
             )
         }
-    }
 
-    override suspend fun doWork(): Result {
-        try {
-            // Handle missed previous check (if any)
-            checkAndRecordMissedMood()
+        /**
+         * Stops mood tracking completely
+         */
+        fun stopTracking(context: Context) {
+            WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
-            // Current hour ID for database entry
-            val currentHourId = dataManager.generateHourId()
-            prefs.edit().putString(PREF_HOURLY_ID, currentHourId).apply()
-
-            // Record current check time
-            val now = System.currentTimeMillis()
+            // Update SharedPreferences
+            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             prefs.edit()
-                .putLong(PREF_LAST_CHECK_TIME, now)
+                .putBoolean(PREF_WAS_TRACKING, false)
                 .apply()
 
-            // Show notification
+            // Cancel any existing notification
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(Constants.NOTIFICATION_ID)
+        }
+
+        /**
+         * Calculates the next interval based on config settings and hourly constraints
+         * The next check will be a random time that satisfies:
+         * 1. Within hour X+1
+         * 2. Between 30-90 minutes from now (or configured interval)
+         */
+        fun calculateNextInterval(context: Context): Long {
+            val configManager = ConfigManager(context)
+            val config = configManager.loadConfig()
+
+            val minIntervalMinutes = config["min_interval_minutes"] ?: Constants.MIN_INTERVAL_MINUTES
+            val maxIntervalMinutes = config["max_interval_minutes"] ?: Constants.MAX_INTERVAL_MINUTES
+
+            val now = System.currentTimeMillis()
+
+            // Calculate the start and end of the next hour (hour X+1)
+            val calendar = Calendar.getInstance().apply {
+                timeInMillis = now
+                add(Calendar.HOUR_OF_DAY, 1) // Move to next hour
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val nextHourStart = calendar.timeInMillis
+
+            calendar.apply {
+                set(Calendar.MINUTE, 59)
+                set(Calendar.SECOND, 59)
+                set(Calendar.MILLISECOND, 999)
+            }
+            val nextHourEnd = calendar.timeInMillis
+
+            // Calculate interval constraints
+            val minTime = now + TimeUnit.MINUTES.toMillis(minIntervalMinutes.toLong())
+            val maxTime = now + TimeUnit.MINUTES.toMillis(maxIntervalMinutes.toLong())
+
+            // Find the overlap between the two constraints
+            val validStart = maxOf(nextHourStart, minTime)
+            val validEnd = minOf(nextHourEnd, maxTime)
+
+            // Pick a random time in the valid range
+            val randomOffset = if (validEnd > validStart) {
+                ThreadLocalRandom.current().nextLong(validEnd - validStart + 1)
+            } else {
+                0L // Fallback in case of unexpected range issues
+            }
+
+            val nextCheckTime = validStart + randomOffset
+
+            return nextCheckTime - now
+        }
+
+        /**
+         * Checks if tracking state is consistent with WorkManager state
+         * Corrects inconsistencies if found
+         */
+        fun checkTrackingConsistency(context: Context) {
+            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            val isTrackingEnabled = prefs.getBoolean(PREF_WAS_TRACKING, false)
+
+            val workManager = WorkManager.getInstance(context)
+            val workInfoFuture = workManager.getWorkInfosForUniqueWork(UNIQUE_WORK_NAME)
+
+            try {
+                val workInfos = workInfoFuture.get()
+                val hasScheduledWork = workInfos.isNotEmpty() &&
+                        workInfos.any { !it.state.isFinished }
+
+                if (isTrackingEnabled && !hasScheduledWork) {
+                    // Tracking enabled but no worker - restart worker
+                    startTracking(context, false)
+                } else if (!isTrackingEnabled && hasScheduledWork) {
+                    // Tracking disabled but worker active - stop worker
+                    stopTracking(context)
+                }
+            } catch (e: Exception) {
+                // If we can't determine state, reset to a safe state
+                if (isTrackingEnabled) {
+                    // Restart tracking if it was supposed to be on
+                    startTracking(context, false)
+                }
+            }
+        }
+    }
+
+    /**
+     * Main work execution method - processes current mood check and schedules next one
+     */
+    override suspend fun doWork(): Result {
+        try {
+            // Check if tracking is still active
+            if (!prefs.getBoolean(PREF_WAS_TRACKING, false)) {
+                // Tracking was disabled while worker was waiting
+                return Result.success()
+            }
+
+            // Record current time
+            val now = System.currentTimeMillis()
+
+            // Generate hourly ID for this check
+            val currentHourId = withContext(Dispatchers.IO) {
+                dataManager.generateHourId()
+            }
+
+            // Handle previous notification if not already handled
+            withContext(Dispatchers.IO) {
+                handlePreviousNotification()
+            }
+
+            // Store the current hour ID for this check
+            prefs.edit().putString(PREF_HOURLY_ID, currentHourId).apply()
+
+            // Update check time
+            prefs.edit().putLong(PREF_LAST_CHECK_TIME, now).apply()
+
+            // Show the mood check notification
             showMoodCheckNotification()
 
-            // Schedule next check
-            // TO DO: This will be replaced with full scheduling algorithm
-            scheduleCheck(applicationContext)
+            // Calculate next interval - use the companion method to avoid code duplication
+            val nextIntervalMillis = calculateNextInterval(applicationContext)
+
+            // Schedule next work
+            val nextCheckTime = now + nextIntervalMillis
+            prefs.edit().putLong(PREF_NEXT_CHECK_TIME, nextCheckTime).apply()
+
+            val workRequest = OneTimeWorkRequestBuilder<MoodCheckWorker>()
+                .setInitialDelay(nextIntervalMillis, TimeUnit.MILLISECONDS)
+                .addTag(Constants.WORKER_TAG)
+                .build()
+
+            WorkManager.getInstance(applicationContext).enqueueUniqueWork(
+                UNIQUE_WORK_NAME,
+                ExistingWorkPolicy.REPLACE,
+                workRequest
+            )
 
             return Result.success()
         } catch (e: Exception) {
@@ -133,24 +234,31 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
     }
 
     /**
-     * Check if previous notification was missed and record "Asleep" if needed
+     * Check and handle previous notification if not already handled
+     * Marks previous notification as "Asleep" if not interacted with
      */
-    private suspend fun checkAndRecordMissedMood() = withContext(Dispatchers.IO) {
-        val lastCheckTime = prefs.getLong(PREF_LAST_CHECK_TIME, 0)
+    private suspend fun handlePreviousNotification() {
         val lastHourId = prefs.getString(PREF_HOURLY_ID, "")
 
         // If we have a previous check recorded
-        if (lastCheckTime > 0 && !lastHourId.isNullOrEmpty()) {
+        if (!lastHourId.isNullOrEmpty()) {
             // Check if we already have a mood entry for that hour
             val hasEntry = dataManager.hasEntryForHour(lastHourId)
 
             // If no entry exists, record "Asleep"
             if (!hasEntry) {
-                dataManager.addMoodEntry("Asleep", lastHourId, lastCheckTime)
+                dataManager.addMoodEntry("Asleep", lastHourId, prefs.getLong(PREF_LAST_CHECK_TIME, 0))
             }
         }
+
+        // Cancel any existing notification
+        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.cancel(Constants.NOTIFICATION_ID)
     }
 
+    /**
+     * Shows the notification that persists until next check
+     */
     private fun showMoodCheckNotification() {
         // Create intent for notification tap
         val intent = Intent(applicationContext, MoodSelectionActivity::class.java).apply {
@@ -173,14 +281,11 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(pendingIntent)
-            .setAutoCancel(true)
+            .setOngoing(true)    // Makes it persistent until canceled
             .build()
 
         // Show the notification
         val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.notify(Constants.NOTIFICATION_ID, notification)
-
-        // Save notification ID
-        prefs.edit().putInt(PREF_LAST_NOTIFICATION_ID, Constants.NOTIFICATION_ID).apply()
     }
 }
