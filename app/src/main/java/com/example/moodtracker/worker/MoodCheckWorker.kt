@@ -47,6 +47,9 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * @param isImmediate If true, shows notification immediately
          */
         fun startTracking(context: Context, isImmediate: Boolean = false) {
+            // First check consistency to ensure we're in a good state
+            checkTrackingConsistency(context)
+
             // Cancel any existing work
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
@@ -78,6 +81,9 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * Stops mood tracking completely
          */
         fun stopTracking(context: Context) {
+            // First check consistency to ensure we're in a good state
+            checkTrackingConsistency(context)
+
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
             // Update SharedPreferences
@@ -147,9 +153,11 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * Checks if tracking state is consistent with WorkManager state
          * Corrects inconsistencies if found
          */
+        /* TODO: This function shouldn't be starting workers on its own.
+           Program should be reworked so the state tracking is accurate without this behavior
+         */
         fun checkTrackingConsistency(context: Context) {
-            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-            val isTrackingEnabled = prefs.getBoolean(PREF_WAS_TRACKING, false)
+            val isActive = isTrackingActive(context)
 
             val workManager = WorkManager.getInstance(context)
             val workInfoFuture = workManager.getWorkInfosForUniqueWork(UNIQUE_WORK_NAME)
@@ -159,20 +167,30 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val hasScheduledWork = workInfos.isNotEmpty() &&
                         workInfos.any { !it.state.isFinished }
 
-                if (isTrackingEnabled && !hasScheduledWork) {
+                if (isActive && !hasScheduledWork) {
                     // Tracking enabled but no worker - restart worker
                     startTracking(context, false)
-                } else if (!isTrackingEnabled && hasScheduledWork) {
+                } else if (!isActive && hasScheduledWork) {
                     // Tracking disabled but worker active - stop worker
                     stopTracking(context)
                 }
             } catch (e: Exception) {
                 // If we can't determine state, reset to a safe state
-                if (isTrackingEnabled) {
+                if (isActive) {
                     // Restart tracking if it was supposed to be on
                     startTracking(context, false)
                 }
             }
+        }
+
+        /**
+         * Check if mood tracking is currently active
+         * @param context Application context
+         * @return true if tracking is active, false otherwise
+         */
+        fun isTrackingActive(context: Context): Boolean {
+            val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            return prefs.getBoolean(PREF_WAS_TRACKING, false)
         }
     }
 

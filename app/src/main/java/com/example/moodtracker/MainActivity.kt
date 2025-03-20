@@ -15,7 +15,6 @@ import android.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.util.ConfigManager
@@ -155,42 +154,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Check tracking consistency first
-        MoodCheckWorker.checkTrackingConsistency(this)
-
-        // Get current state
-        val isActive = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
-            .getBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
+        // Get current state 
+        val isActive = MoodCheckWorker.isTrackingActive(this)
 
         if (isActive) {
             // If active, just trigger an immediate check
-            triggerMoodCheckNow()
-        } else {
-            // If not active, start tracking
-            startMoodTracking()
-        }
-
-        // Update button states after action
-        updateButtonStates()
-    }
-
-    /**
-     * Start mood tracking by scheduling a worker
-     */
-    private fun startMoodTracking() {
-        // Start tracking with standard delay
-        MoodCheckWorker.startTracking(this, isImmediate = false)
-
-        // Update UI
-        statusText.setText(R.string.service_running)
-        updateButtonStates()
-    }
-
-    /**
-     * Trigger a mood check immediately
-     */
-    private fun triggerMoodCheckNow() {
-        try {
             MoodCheckWorker.startTracking(this, isImmediate = true)
 
             // Update UI to give feedback
@@ -199,11 +167,15 @@ class MainActivity : AppCompatActivity() {
             handler.postDelayed({
                 statusText.setText(R.string.service_running)
             }, 3000)
-        } catch (e: Exception) {
-            statusText.setText(R.string.trigger_error)
-            e.printStackTrace()
+        } else {
+            // If not active, start tracking
+            MoodCheckWorker.startTracking(this, isImmediate = false)
+
+            // Update UI
+            statusText.setText(R.string.service_running)
         }
 
+        // Update button states after action
         updateButtonStates()
     }
 
@@ -257,8 +229,7 @@ class MainActivity : AppCompatActivity() {
         requestPermissionsButton.isEnabled = !allPermissionsGranted
 
         // Update tracking button state
-        val isActive = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
-            .getBoolean(MoodCheckWorker.PREF_WAS_TRACKING, false)
+        val isActive = MoodCheckWorker.isTrackingActive(this)
         toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
         stopTrackingButton.isEnabled = isActive
     }
@@ -390,31 +361,17 @@ class MainActivity : AppCompatActivity() {
 
         // Check if worker is scheduled
         val workManager = WorkManager.getInstance(applicationContext)
-
-        // Get work info without blocking
-        val workInfos = try {
-            // This isn't truly non-blocking but safer than direct .get()
-            val workInfosFuture = workManager.getWorkInfosByTag(Constants.WORKER_TAG)
-            if (workInfosFuture.isDone) {
-                workInfosFuture.get()
-            } else {
-                emptyList()
-            }
-        } catch (e: Exception) {
-            emptyList()
-        }
+        val isTrackingEnabled = MoodCheckWorker.isTrackingActive(this)
 
         // Get next check time from SharedPreferences
-        val prefs = getSharedPreferences("mood_tracker_prefs", Context.MODE_PRIVATE)
-        val nextCheckTime = prefs.getLong("next_check_time", 0)
-        val isRetry = prefs.getBoolean("is_retry", false)
+        val prefs = getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
+        val nextCheckTime = prefs.getLong(MoodCheckWorker.PREF_NEXT_CHECK_TIME, 0)
 
         // Display next check time prominently at the top
         if (nextCheckTime > 0) {
             val nextCheckDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 .format(Date(nextCheckTime))
             sb.append("NEXT MOOD CHECK: $nextCheckDate\n")
-            sb.append("Check Type: ${if (isRetry) "RETRY" else "REGULAR"}\n")
 
             // Time until next check
             val minutesUntil = TimeUnit.MILLISECONDS.toMinutes(nextCheckTime - System.currentTimeMillis())
@@ -424,21 +381,22 @@ class MainActivity : AppCompatActivity() {
             sb.append("NEXT MOOD CHECK: Not scheduled\n\n")
         }
 
-        // Rest of the worker status information
-        if (workInfos.isNotEmpty()) {
-            sb.append("Worker Status: SCHEDULED\n")
+        // Improved work info retrieval
+        try {
+            val workInfosFuture = workManager.getWorkInfosByTag(Constants.WORKER_TAG)
+            val workInfos = workInfosFuture.get(1000, TimeUnit.MILLISECONDS) // Short timeout
 
-            // Check each work info
-            for (workInfo in workInfos) {
-                sb.append("ID: ${workInfo.id}\n")
-                sb.append("State: ${workInfo.state}\n")
+            if (workInfos.isNotEmpty() && workInfos.any { !it.state.isFinished }) {
+                sb.append("Worker Status: SCHEDULED\n")
+            } else {
+                sb.append("Worker Status: NOT SCHEDULED\n")
             }
-        } else {
-            sb.append("Worker Status: NOT SCHEDULED\n")
+        } catch (e: Exception) {
+            sb.append("Worker Status: ERROR CHECKING\n")
         }
 
         // Last check time
-        val lastCheckTime = prefs.getLong("last_check_time", 0)
+        val lastCheckTime = prefs.getLong(MoodCheckWorker.PREF_LAST_CHECK_TIME, 0)
         if (lastCheckTime > 0) {
             val lastCheckDate = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
                 .format(Date(lastCheckTime))
@@ -452,8 +410,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Tracking status from SharedPreferences
-        val wasTracking = prefs.getBoolean("was_tracking", false)
-        sb.append("\nTracking Enabled: ${if (wasTracking) "YES" else "NO"}\n")
+        sb.append("\nTracking Enabled: ${if (isTrackingEnabled) "YES" else "NO"}\n")
 
         return sb.toString()
     }
