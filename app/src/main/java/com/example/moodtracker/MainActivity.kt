@@ -154,7 +154,7 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // Get current state 
+        // Get current state
         val isActive = MoodCheckWorker.isTrackingActive(this)
 
         if (isActive) {
@@ -223,6 +223,7 @@ class MainActivity : AppCompatActivity() {
     /**
      * Update the text and enabled state of all buttons based on current app state
      */
+    // TODO get rid of this function and integrate the button state updates into the buttons themselves
     private fun updateButtonStates() {
         // Update permission button state
         val allPermissionsGranted = checkPermissions()
