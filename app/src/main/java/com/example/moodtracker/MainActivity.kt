@@ -424,7 +424,6 @@ class MainActivity : AppCompatActivity() {
             val config = configManager.loadConfig()
             sb.append("Min Interval: ${config["min_interval_minutes"] ?: "N/A"} minutes\n")
             sb.append("Max Interval: ${config["max_interval_minutes"] ?: "N/A"} minutes\n")
-            sb.append("Retry Window: ${config["retry_window_minutes"] ?: "N/A"} minutes\n")
 
             // Load moods
             val moods = configManager.loadMoods()
