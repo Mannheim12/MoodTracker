@@ -5,7 +5,6 @@ import android.os.Environment
 import com.example.moodtracker.data.AppDatabase
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.MoodEntry
-import java.io.BufferedWriter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStreamWriter
@@ -14,6 +13,8 @@ import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.apache.commons.csv.CSVFormat
+import org.apache.commons.csv.CSVPrinter
 
 /**
  * Handles reading and writing mood data using Room database and CSV export
@@ -22,9 +23,6 @@ class DataManager(private val context: Context) {
 
     private val hourIdFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
     private val fullDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-
-    // CSV header columns
-    private val csvHeaders = "id,timestamp,mood\n"
 
     // Get the Room database instance
     private val database: AppDatabase by lazy {
@@ -88,17 +86,25 @@ class DataManager(private val context: Context) {
             // Create CSV file
             val csvFile = File(moodTrackerDir, Constants.DATA_FILE_NAME)
 
-            // Write to file
+            // Use Apache Commons CSV
             FileOutputStream(csvFile).use { outputStream ->
-                BufferedWriter(OutputStreamWriter(outputStream)).use { writer ->
-                    writer.write(csvHeaders)
+                OutputStreamWriter(outputStream).use { writer ->
+                    // Create CSV printer with standard format
+                    val printer = CSVPrinter(
+                        writer,
+                        CSVFormat.DEFAULT.builder()
+                            .setHeader("id", "timestamp", "mood")
+                            .build()
+                    )
 
-                    for (entry in entries) {
+                    // Print records
+                    entries.forEach { entry ->
                         val formattedDate = fullDateFormat.format(Date(entry.timestamp))
-                        writer.write("${entry.id},${formattedDate},${entry.moodName}\n")
+                        printer.printRecord(entry.id, formattedDate, entry.moodName)
                     }
 
-                    writer.flush()
+                    printer.flush()
+                    printer.close()
                 }
             }
         } catch (e: Exception) {

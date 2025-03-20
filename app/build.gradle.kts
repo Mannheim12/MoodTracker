@@ -85,7 +85,6 @@ dependencies {
 
     // CSV handling
     implementation(libs.commons.csv)
-    implementation(libs.opencsv)
 
     // File operations
     implementation(libs.androidx.documentfile)
