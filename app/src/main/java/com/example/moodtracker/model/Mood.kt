@@ -44,7 +44,6 @@ object Constants {
     // Time constants
     const val MIN_INTERVAL_MINUTES = 30
     const val MAX_INTERVAL_MINUTES = 90
-    const val RETRY_WINDOW_MINUTES = 5
 
     // Default moods if config file is missing or corrupt
     val DEFAULT_MOODS = listOf(

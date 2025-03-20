@@ -11,11 +11,7 @@ import java.io.File
  * Handles reading and writing configuration using SharedPreferences
  */
 class ConfigManager(context: Context) {
-
-    private val sharedPreferences = context.getSharedPreferences(
-        "mood_tracker_preferences",
-        Context.MODE_PRIVATE
-    )
+    private val sharedPreferences = context.getSharedPreferences("mood_tracker_preferences",Context.MODE_PRIVATE)
 
     // Cached moods list to avoid frequent reading
     private var cachedMoods: List<Mood>? = null
@@ -108,11 +104,6 @@ class ConfigManager(context: Context) {
             Constants.MAX_INTERVAL_MINUTES
         )
 
-        config["retry_window_minutes"] = sharedPreferences.getInt(
-            "retry_window_minutes",
-            Constants.RETRY_WINDOW_MINUTES
-        )
-
         // Validate values
         if (config["min_interval_minutes"]!! < 5) {
             config["min_interval_minutes"] = 5
@@ -131,11 +122,6 @@ class ConfigManager(context: Context) {
                 .putInt("min_interval_minutes", Constants.MIN_INTERVAL_MINUTES)
                 .putInt("max_interval_minutes", Constants.MAX_INTERVAL_MINUTES)
                 .apply()
-        }
-
-        if (config["retry_window_minutes"]!! < 1 || config["retry_window_minutes"]!! > 15) {
-            config["retry_window_minutes"] = Constants.RETRY_WINDOW_MINUTES
-            sharedPreferences.edit().putInt("retry_window_minutes", Constants.RETRY_WINDOW_MINUTES).apply()
         }
 
         cachedConfig = config
