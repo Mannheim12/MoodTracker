@@ -46,4 +46,7 @@
     <string name="export_failed">Failed to export config</string>
     <string name="config_imported">Configuration imported successfully</string>
     <string name="import_failed">Failed to import configuration</string>
+    <string name="view_config">View Config</string>
+    <string name="config_file_content">Configuration File</string>
+    <string name="error_loading_config">Error loading configuration</string>
 </resources>

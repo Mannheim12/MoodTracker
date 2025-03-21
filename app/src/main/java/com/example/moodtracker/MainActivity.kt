@@ -138,6 +138,10 @@ class MainActivity : AppCompatActivity() {
             viewDatabase()
         }
 
+        findViewById<Button>(R.id.view_config_button).setOnClickListener {
+            viewConfig()
+        }
+
         findViewById<Button>(R.id.export_config_button).setOnClickListener {
             exportConfig()
         }
@@ -556,5 +560,59 @@ class MainActivity : AppCompatActivity() {
             type = "application/json"
         }
         importConfigLauncher.launch(intent)
+    }
+
+    private fun viewConfig() {
+        // Launch in a coroutine
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Use configManager to get the config
+                val config = configManager.loadConfig()
+
+                // Convert to a readable format using existing methods
+                val configText = buildString {
+                    append("Min Interval: ${config.minIntervalMinutes} minutes\n")
+                    append("Max Interval: ${config.maxIntervalMinutes} minutes\n\n")
+
+                    append("Moods:\n")
+                    config.moods.forEach { mood ->
+                        append("- ${mood.name}: Color ${mood.colorHex}")
+                        if (mood.dimension1.isNotEmpty()) {
+                            append(", ${mood.dimension1}")
+                        }
+                        if (mood.dimension2.isNotEmpty()) {
+                            append(", ${mood.dimension2}")
+                        }
+                        if (mood.dimension3.isNotEmpty()) {
+                            append(", ${mood.dimension3}")
+                        }
+                        if (mood.category.isNotEmpty()) {
+                            append(", Category: ${mood.category}")
+                        }
+                        append("\n")
+                    }
+                }
+
+                // Show in an AlertDialog with ScrollView - using same pattern as viewDatabase()
+                val scrollView = ScrollView(this@MainActivity)
+                val textView = TextView(this@MainActivity).apply {
+                    text = configText
+                    setPadding(20, 20, 20, 20)
+                    textSize = 14f
+                }
+
+                scrollView.addView(textView)
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(getString(R.string.config_file_content))
+                    .setView(scrollView)
+                    .setPositiveButton(R.string.close, null)
+                    .show()
+
+            } catch (e: Exception) {
+                statusText.setText(R.string.error_loading_config)
+                e.printStackTrace()
+            }
+        }
     }
 }

@@ -107,6 +107,13 @@
                 android:layout_height="wrap_content"
                 android:text="@string/import_config"
                 android:layout_marginVertical="4dp" />
+
+            <Button
+                android:id="@+id/view_config_button"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="@string/view_config"
+                android:layout_marginVertical="4dp" />
         </LinearLayout>
 
         <TextView
