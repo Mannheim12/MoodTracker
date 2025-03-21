@@ -291,11 +291,20 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        // Get the hourID and extract just the hour part (last 2 characters)
+        val hourId = prefs.getString(PREF_HOURLY_ID, "") ?: ""
+        val hourOfDay = hourId.takeLast(2).toInt() // Safe because format is guaranteed
+
+        // Convert to 12-hour format with AM/PM
+        val hour = if (hourOfDay == 0) 12 else if (hourOfDay > 12) hourOfDay - 12 else hourOfDay
+        val amPm = if (hourOfDay < 12) "AM" else "PM"
+        val hourText = "$hour $amPm"
+
         // Build the notification
         val notification = NotificationCompat.Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_mood_tracker)
             .setContentTitle(applicationContext.getString(R.string.notification_title))
-            .setContentText(applicationContext.getString(R.string.notification_text))
+            .setContentText(applicationContext.getString(R.string.notification_text_with_hour, hourText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setContentIntent(pendingIntent)

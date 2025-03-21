@@ -9,7 +9,7 @@
     <string name="current_time_placeholder">Current time: 12:00 PM</string>
     <string name="current_time_format">Current time: %s</string>
     <string name="notification_title">Mood Check</string>
-    <string name="notification_text">Time to record your current mood</string>
+    <string name="notification_text_with_hour">Time to record your mood for %s</string>
     <string name="notification_channel_name">Mood Check Reminders</string>
     <string name="service_running">Mood Tracker is running in the background.</string>
     <string name="battery_optimization_warning">For reliable mood checks, please exclude this app from battery optimization</string>

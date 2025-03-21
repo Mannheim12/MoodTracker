@@ -31,7 +31,6 @@ class MoodTrackerApp : Application(), Configuration.Provider {
             getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = getString(R.string.notification_text)
             enableLights(true)
             lightColor = Color.BLUE
             enableVibration(true)
