@@ -1,7 +1,6 @@
 package com.example.moodtracker.util
 
 import android.content.Context
-import android.content.SharedPreferences
 import android.net.Uri
 import android.os.Environment
 import com.example.moodtracker.model.Constants

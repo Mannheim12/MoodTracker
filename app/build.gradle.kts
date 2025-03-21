@@ -38,12 +38,7 @@ android {
     }
 
     buildFeatures {
-        compose = true
         viewBinding = true  // For potential XML layouts
-    }
-
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.kotlin.compose.get()  // Reference version from catalog
     }
 
     packaging {
@@ -58,15 +53,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.ktx)
-    implementation(libs.androidx.lifecycle.viewmodel.compose)
-    implementation(libs.androidx.lifecycle.livedata.ktx)
-    implementation(libs.androidx.lifecycle.service)
-    implementation(libs.androidx.activity.compose)
-    implementation(libs.androidx.fragment.ktx)
-
-    // Navigation
-    implementation(libs.androidx.navigation.compose)
 
     // WorkManager for background tasks
     implementation(libs.androidx.work.runtime.ktx)
@@ -79,9 +65,6 @@ dependencies {
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.coroutines.core)
-
-    // Datastore preferences
-    implementation(libs.androidx.datastore.preferences)
 
     // CSV handling
     implementation(libs.commons.csv)
