@@ -63,21 +63,22 @@ class MainActivity : AppCompatActivity() {
     companion object {
         private const val PERMISSION_REQUEST_CODE = 123
         private val REQUIRED_PERMISSIONS = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // For Android 13+ (API 33+), include notification permission
+            // For Android 13+ (API 33+)
             arrayOf(
                 Manifest.permission.POST_NOTIFICATIONS,
                 Manifest.permission.VIBRATE
-                // Commenting out storage permissions until interface issues are resolved
-                // Manifest.permission.READ_EXTERNAL_STORAGE,
-                // Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            )
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+            // For Android 9 and below (API ≤ 28)
+            arrayOf(
+                Manifest.permission.VIBRATE,
+                Manifest.permission.READ_EXTERNAL_STORAGE,
+                Manifest.permission.WRITE_EXTERNAL_STORAGE
             )
         } else {
-            // For older versions
+            // For Android 10-12
             arrayOf(
                 Manifest.permission.VIBRATE
-                // Commenting out storage permissions until interface issues are resolved
-                // Manifest.permission.READ_EXTERNAL_STORAGE,
-                // Manifest.permission.WRITE_EXTERNAL_STORAGE,
             )
         }
     }
@@ -531,17 +532,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun exportConfig() {
-        // Check permission for writing to storage
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-            != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
-                PERMISSION_REQUEST_CODE
-            )
-            return
-        }
-
         // Export in background
         CoroutineScope(Dispatchers.IO).launch {
             val file = configManager.exportConfig()
