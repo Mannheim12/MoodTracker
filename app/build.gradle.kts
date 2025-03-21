@@ -95,4 +95,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.test.junit)
     androidTestImplementation(libs.androidx.test.espresso.core)
+
+    // Config
+    implementation(libs.moshi)
+    implementation(libs.moshi.kotlin)
 }

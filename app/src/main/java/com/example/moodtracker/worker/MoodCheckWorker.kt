@@ -107,8 +107,8 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val configManager = ConfigManager(context)
             val config = configManager.loadConfig()
 
-            val minIntervalMinutes = config["min_interval_minutes"] ?: Constants.MIN_INTERVAL_MINUTES
-            val maxIntervalMinutes = config["max_interval_minutes"] ?: Constants.MAX_INTERVAL_MINUTES
+            val minIntervalMinutes = config.minIntervalMinutes
+            val maxIntervalMinutes = config.maxIntervalMinutes
 
             val now = System.currentTimeMillis()
 

@@ -2,137 +2,110 @@ package com.example.moodtracker.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import android.os.Environment
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.Mood
 import java.io.File
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 /**
- * Handles reading and writing configuration using SharedPreferences
+ * Handles reading and writing configuration using .json file
  */
-class ConfigManager(context: Context) {
-    private val sharedPreferences = context.getSharedPreferences("mood_tracker_preferences",Context.MODE_PRIVATE)
+class ConfigManager(private val context: Context) {
+    private val configFileName = Constants.CONFIG_FILE_NAME
 
-    // Cached moods list to avoid frequent reading
-    private var cachedMoods: List<Mood>? = null
+    // Data class for configuration
+    data class Config(
+        val minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES,
+        val maxIntervalMinutes: Int = Constants.MAX_INTERVAL_MINUTES,
+        val moods: List<Mood> = Constants.DEFAULT_MOODS
+    )
 
-    // Cached configuration settings
-    private var cachedConfig: Map<String, Int>? = null
+    // Load config from JSON file, create default if not exists
+    fun loadConfig(): Config {
+        try {
+            val file = File(context.filesDir, configFileName)
 
-    /**
-     * Load moods from SharedPreferences or return defaults
-     */
+            // Create default config file if not exists
+            if (!file.exists()) {
+                saveDefaultConfig()
+                return Config()
+            }
+
+            // Read config from file
+            val json = file.readText()
+            return parseConfig(json)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return Config() // Return defaults on error
+        }
+    }
+
+    // Load just the moods - for MoodSelectionActivity
     fun loadMoods(): List<Mood> {
-        // Return cached moods if available
-        cachedMoods?.let { return it }
-
-        // Check if we have stored any moods
-        val moodCount = sharedPreferences.getInt("mood.count", 0)
-
-        // If no moods stored, use defaults
-        if (moodCount == 0) {
-            saveDefaultMoods()
-            cachedMoods = Constants.DEFAULT_MOODS
-            return Constants.DEFAULT_MOODS
-        }
-
-        // Parse stored moods
-        val moods = mutableListOf<Mood>()
-
-        for (i in 0 until moodCount) {
-            val name = sharedPreferences.getString("mood.$i.name", null) ?: continue
-            val color = sharedPreferences.getString("mood.$i.color", "#808080") ?: "#808080"
-            val dimension1 = sharedPreferences.getString("mood.$i.dimension1", "") ?: ""
-            val dimension2 = sharedPreferences.getString("mood.$i.dimension2", "") ?: ""
-            val dimension3 = sharedPreferences.getString("mood.$i.dimension3", "") ?: ""
-            val category = sharedPreferences.getString("mood.$i.category", "") ?: ""
-
-            moods.add(Mood(name, color, dimension1, dimension2, dimension3, category))
-        }
-
-        // If no valid moods were loaded, use defaults
-        if (moods.isEmpty()) {
-            saveDefaultMoods()
-            cachedMoods = Constants.DEFAULT_MOODS
-            return Constants.DEFAULT_MOODS
-        }
-
-        cachedMoods = moods
-        return moods
+        return loadConfig().moods
     }
 
-    /**
-     * Save default moods to SharedPreferences
-     */
-    private fun saveDefaultMoods() {
-        val editor = sharedPreferences.edit()
-
-        // Save mood count
-        editor.putInt("mood.count", Constants.DEFAULT_MOODS.size)
-
-        // Save each mood
-        Constants.DEFAULT_MOODS.forEachIndexed { index, mood ->
-            editor.putString("mood.$index.name", mood.name)
-            editor.putString("mood.$index.color", mood.colorHex)
-            if (mood.dimension1.isNotEmpty()) editor.putString("mood.$index.dimension1", mood.dimension1)
-            if (mood.dimension2.isNotEmpty()) editor.putString("mood.$index.dimension2", mood.dimension2)
-            if (mood.dimension3.isNotEmpty()) editor.putString("mood.$index.dimension3", mood.dimension3)
-            if (mood.category.isNotEmpty()) editor.putString("mood.$index.category", mood.category)
+    // Save config to file
+    private fun saveConfig(config: Config) {
+        try {
+            val file = File(context.filesDir, configFileName)
+            val json = convertConfigToJson(config)
+            file.writeText(json)
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-
-        editor.apply()
     }
 
-    /**
-     * Load configuration settings
-     * @return Map of configuration settings with default values if not found
-     */
-    fun loadConfig(): Map<String, Int> {
-        // Return cached config if available
-        cachedConfig?.let { return it }
-
-        val config = mutableMapOf<String, Int>()
-
-        // Set default values
-        config["min_interval_minutes"] = sharedPreferences.getInt(
-            "min_interval_minutes",
-            Constants.MIN_INTERVAL_MINUTES
-        )
-
-        config["max_interval_minutes"] = sharedPreferences.getInt(
-            "max_interval_minutes",
-            Constants.MAX_INTERVAL_MINUTES
-        )
-
-        // Validate values
-        if (config["min_interval_minutes"]!! < 5) {
-            config["min_interval_minutes"] = 5
-            sharedPreferences.edit().putInt("min_interval_minutes", 5).apply()
-        }
-
-        if (config["max_interval_minutes"]!! > 120) {
-            config["max_interval_minutes"] = 120
-            sharedPreferences.edit().putInt("max_interval_minutes", 120).apply()
-        }
-
-        if (config["min_interval_minutes"]!! >= config["max_interval_minutes"]!!) {
-            config["min_interval_minutes"] = Constants.MIN_INTERVAL_MINUTES
-            config["max_interval_minutes"] = Constants.MAX_INTERVAL_MINUTES
-            sharedPreferences.edit()
-                .putInt("min_interval_minutes", Constants.MIN_INTERVAL_MINUTES)
-                .putInt("max_interval_minutes", Constants.MAX_INTERVAL_MINUTES)
-                .apply()
-        }
-
-        cachedConfig = config
-        return config
+    // Create default config
+    private fun saveDefaultConfig() {
+        saveConfig(Config())
     }
 
-    /**
-     * Clear the cached config to force a reload
-     */
-    fun clearCache() {
-        cachedMoods = null
-        cachedConfig = null
+    // Export config to Downloads folder
+    fun exportConfig(): File? {
+        try {
+            val config = loadConfig()
+            val json = convertConfigToJson(config)
+
+            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+            val exportFile = File(downloadsDir, "mood_tracker_config.json")
+            exportFile.writeText(json)
+            return exportFile
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return null
+        }
+    }
+
+    // Import config from file URI
+    fun importConfig(uri: Uri): Boolean {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val json = input.bufferedReader().readText()
+                val config = parseConfig(json)
+                saveConfig(config)
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return false
+    }
+
+    // Parse JSON using Moshi
+    private fun parseConfig(json: String): Config {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val adapter = moshi.adapter(Config::class.java)
+        return adapter.fromJson(json) ?: Config()
+    }
+
+    // Convert to JSON using Moshi
+    private fun convertConfigToJson(config: Config): String {
+        val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+        val adapter = moshi.adapter(Config::class.java)
+        return adapter.toJson(config)
     }
 }

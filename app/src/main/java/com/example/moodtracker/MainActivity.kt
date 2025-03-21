@@ -29,6 +29,9 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import android.view.View
+import androidx.activity.result.ActivityResultLauncher
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.Intent
 
 /**
  * Main entry point for the application - enhanced with debugging info
@@ -45,6 +48,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewDatabaseButton: Button
     private lateinit var debugInfoText: TextView
     private lateinit var batteryOptimizationText: TextView
+    private lateinit var importConfigLauncher: ActivityResultLauncher<Intent>
 
     // Handler for periodic UI updates
     private val handler = Handler(Looper.getMainLooper())
@@ -82,6 +86,27 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Setup result launcher
+        importConfigLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val success = configManager.importConfig(uri)
+                        withContext(Dispatchers.Main) {
+                            if (success) {
+                                statusText.setText(R.string.config_imported)
+                                updateDebugInfo()
+                            } else {
+                                statusText.setText(R.string.import_failed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         configManager = ConfigManager(this)
         dataManager = DataManager(this)
 
@@ -110,6 +135,14 @@ class MainActivity : AppCompatActivity() {
         viewDatabaseButton = findViewById(R.id.view_database_button)
         viewDatabaseButton.setOnClickListener {
             viewDatabase()
+        }
+
+        findViewById<Button>(R.id.export_config_button).setOnClickListener {
+            exportConfig()
+        }
+
+        findViewById<Button>(R.id.import_config_button).setOnClickListener {
+            importConfig()
         }
 
         refreshButton.setOnClickListener {
@@ -422,8 +455,8 @@ class MainActivity : AppCompatActivity() {
         try {
             // Load config values
             val config = configManager.loadConfig()
-            sb.append("Min Interval: ${config["min_interval_minutes"] ?: "N/A"} minutes\n")
-            sb.append("Max Interval: ${config["max_interval_minutes"] ?: "N/A"} minutes\n")
+            sb.append("Min Interval: ${config.minIntervalMinutes} minutes\n")
+            sb.append("Max Interval: ${config.maxIntervalMinutes} minutes\n")
 
             // Load moods
             val moods = configManager.loadMoods()
@@ -495,5 +528,38 @@ class MainActivity : AppCompatActivity() {
                 e.printStackTrace()
             }
         }
+    }
+
+    private fun exportConfig() {
+        // Check permission for writing to storage
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
+            != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.WRITE_EXTERNAL_STORAGE),
+                PERMISSION_REQUEST_CODE
+            )
+            return
+        }
+
+        // Export in background
+        CoroutineScope(Dispatchers.IO).launch {
+            val file = configManager.exportConfig()
+            withContext(Dispatchers.Main) {
+                if (file != null) {
+                    statusText.text = getString(R.string.config_exported, file.path)
+                } else {
+                    statusText.text = getString(R.string.export_failed)
+                }
+            }
+        }
+    }
+
+    private fun importConfig() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        importConfigLauncher.launch(intent)
     }
 }

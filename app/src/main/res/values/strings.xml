@@ -38,4 +38,12 @@
     <string name="error_loading_database">Error loading database: %1$s</string>
     <string name="database_entries">Database Entries (%1$d)</string>
     <string name="close">Close</string>
+
+    <!-- Config messages -->
+    <string name="export_config">Export Configuration</string>
+    <string name="import_config">Import Configuration</string>
+    <string name="config_exported">Config exported to: %1$s</string>
+    <string name="export_failed">Failed to export config</string>
+    <string name="config_imported">Configuration imported successfully</string>
+    <string name="import_failed">Failed to import configuration</string>
 </resources>

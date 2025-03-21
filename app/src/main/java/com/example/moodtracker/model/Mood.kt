@@ -34,7 +34,7 @@ data class MoodEntry(
 
 // Constants for file paths and other settings
 object Constants {
-    const val CONFIG_FILE_NAME = "mood_tracker.config"
+    const val CONFIG_FILE_NAME = "mood_tracker.config.json"
     const val DATA_FILE_NAME = "mood_tracker_data.csv"
     const val EXPORT_DIRECTORY_NAME = "MoodTracker" // For Downloads folder
     const val NOTIFICATION_CHANNEL_ID = "mood_tracker_channel"
