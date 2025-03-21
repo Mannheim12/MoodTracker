@@ -93,8 +93,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 .apply()
 
             // Cancel any existing notification
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.cancel(Constants.NOTIFICATION_ID)
+            cancelNotification(context)
         }
 
         /**
@@ -192,6 +191,11 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
             return prefs.getBoolean(PREF_WAS_TRACKING, false)
         }
+
+        fun cancelNotification(context: Context) {
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(Constants.NOTIFICATION_ID)
+        }
     }
 
     /**
@@ -270,8 +274,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
 
         // Cancel any existing notification
-        val notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.cancel(Constants.NOTIFICATION_ID)
+        cancelNotification(applicationContext)
     }
 
     /**

@@ -208,6 +208,9 @@ class MoodSelectionActivity : AppCompatActivity() {
         if (moodRecorded) return
         moodRecorded = true
 
+        // Cancel the notification
+        MoodCheckWorker.cancelNotification(this)
+
         // Cancel the timeout handler
         handler.removeCallbacksAndMessages(null)
 
