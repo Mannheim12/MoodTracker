@@ -409,9 +409,11 @@ class MainActivity : AppCompatActivity() {
             sb.append("NEXT MOOD CHECK: $nextCheckDate\n")
 
             // Time until next check
-            val minutesUntil = TimeUnit.MILLISECONDS.toMinutes(nextCheckTime - System.currentTimeMillis())
-            val secondsUntil = TimeUnit.MILLISECONDS.toSeconds(nextCheckTime - System.currentTimeMillis()) % 60
-            sb.append("Time until next check: $minutesUntil min $secondsUntil sec\n\n")
+            val timeDiffMillis = nextCheckTime - System.currentTimeMillis()
+            val hoursUntil = TimeUnit.MILLISECONDS.toHours(timeDiffMillis)
+            val minutesUntil = TimeUnit.MILLISECONDS.toMinutes(timeDiffMillis) % 60
+            val secondsUntil = TimeUnit.MILLISECONDS.toSeconds(timeDiffMillis) % 60
+            sb.append("Time until next check: $hoursUntil hr $minutesUntil min $secondsUntil sec\n\n")
         } else {
             sb.append("NEXT MOOD CHECK: Not scheduled\n\n")
         }
@@ -438,8 +440,11 @@ class MainActivity : AppCompatActivity() {
             sb.append("\nLast Check: $lastCheckDate\n")
 
             // Time since last check
-            val minutesSince = TimeUnit.MILLISECONDS.toMinutes(System.currentTimeMillis() - lastCheckTime)
-            sb.append("Time since last check: $minutesSince minutes\n")
+            val timeSinceMillis = System.currentTimeMillis() - lastCheckTime
+            val hoursSince = TimeUnit.MILLISECONDS.toHours(timeSinceMillis)
+            val minutesSince = TimeUnit.MILLISECONDS.toMinutes(timeSinceMillis) % 60
+            val secondsSince = TimeUnit.MILLISECONDS.toSeconds(timeSinceMillis) % 60
+            sb.append("Time since last check: $hoursSince hr $minutesSince min $secondsSince sec\n")
         } else {
             sb.append("\nLast Check: NEVER\n")
         }
