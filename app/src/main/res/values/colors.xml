@@ -7,12 +7,4 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-
-    <!-- Mood colors -->
-    <color name="positive_high">#4CAF50</color>  <!-- Bright green -->
-    <color name="positive_low">#8BC34A</color>   <!-- Light green -->
-    <color name="neutral_high">#FFC107</color>   <!-- Amber -->
-    <color name="neutral_low">#FF9800</color>    <!-- Orange -->
-    <color name="negative_high">#F44336</color>  <!-- Red -->
-    <color name="negative_low">#9C27B0</color>   <!-- Purple -->
 </resources>
