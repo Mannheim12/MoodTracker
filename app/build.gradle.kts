@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "com.example.moodtracker"
-    compileSdk = 34  // Using current stable version
+    compileSdk = 35  // Using current stable version
 
     defaultConfig {
         applicationId = "com.example.moodtracker"
         minSdk = 26
-        targetSdk = 34  // Using current stable version
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
