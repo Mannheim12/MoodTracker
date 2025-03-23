@@ -47,4 +47,5 @@
     <string name="view_config">View Config</string>
     <string name="config_file_content">Configuration File</string>
     <string name="error_loading_config">Error loading configuration</string>
+    <string name="test">test unused</string>
 </resources>
