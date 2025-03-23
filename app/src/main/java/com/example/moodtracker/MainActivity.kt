@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
     // 1. Permission buttons
     private lateinit var requestPermissionsButton: Button
     // 2. Control buttons
-    private lateinit var toggleTrackingButton: Button
+    private lateinit var startTrackingOrCheckNowButton: Button
     private lateinit var stopTrackingButton: Button
     // 3. Config buttons
     private lateinit var viewConfigButton: Button
@@ -57,7 +57,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewDatabaseButton: Button
     private lateinit var exportDatabaseButton: Button // Future feature
     // 5. Debug buttons
-    private lateinit var refreshButton: Button
+    private lateinit var showOrRefreshDebugButton: Button
     private lateinit var hideDebugButton: Button // Future feature
 
     // Handler for periodic UI updates
@@ -129,7 +129,7 @@ class MainActivity : AppCompatActivity() {
         // 1. Permissions row
         requestPermissionsButton = findViewById(R.id.request_permissions_button)
         // 2. Tracking controls row
-        toggleTrackingButton = findViewById(R.id.toggle_tracking_button)
+        startTrackingOrCheckNowButton = findViewById(R.id.toggle_tracking_button)
         stopTrackingButton = findViewById(R.id.stop_tracking_button)
         // 3. Configuration row
         viewConfigButton = findViewById(R.id.view_config_button)
@@ -139,14 +139,14 @@ class MainActivity : AppCompatActivity() {
         viewDatabaseButton = findViewById(R.id.view_database_button)
         //exportDatabaseButton = findViewById(R.id.export_database_button) // Future feature
         // 5. Debug row
-        refreshButton = findViewById(R.id.refresh_button) //show or refresh button
+        showOrRefreshDebugButton = findViewById(R.id.refresh_button) //show or refresh button
         //hideDebugButton = findViewById(R.id.hide_debug_button) // Future feature
 
         // Set up button click listeners (same order as initialization)
         // 1. Permissions row
         requestPermissionsButton.setOnClickListener { requestPermissions() }
         // 2. Tracking controls row
-        toggleTrackingButton.setOnClickListener { toggleTracking() }
+        startTrackingOrCheckNowButton.setOnClickListener { startTrackingOrCheckNow() }
         stopTrackingButton.setOnClickListener { stopTracking() }
         // 3. Configuration row
         viewConfigButton.setOnClickListener { viewConfig() }
@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity() {
         // 4. Database row
         viewDatabaseButton.setOnClickListener { viewDatabase() }
         // 5. Debug row
-        refreshButton.setOnClickListener { updateDebugInfo() }
+        showOrRefreshDebugButton.setOnClickListener { updateDebugInfo() }
     }
 
     /**
@@ -175,7 +175,7 @@ class MainActivity : AppCompatActivity() {
         requestPermissionsButton.isEnabled = !allPermissionsGranted
         // Update tracking button state
         val isActive = MoodCheckWorker.isTrackingActive(this)
-        toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
+        startTrackingOrCheckNowButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
         stopTrackingButton.isEnabled = isActive
         // Start periodic updates
         handler.post(updateRunnable)
@@ -191,7 +191,7 @@ class MainActivity : AppCompatActivity() {
      * Toggles between starting tracking and triggering an immediate check
      * based on current tracking state
      */
-    private fun toggleTracking() {
+    private fun startTrackingOrCheckNow() {
         if (!checkPermissions()) {
             statusText.setText(R.string.permissions_needed)
             return
@@ -219,7 +219,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Update tracking button state
-        toggleTrackingButton.setText(R.string.check_now)
+        startTrackingOrCheckNowButton.setText(R.string.check_now)
         stopTrackingButton.isEnabled = true
     }
 
@@ -233,7 +233,7 @@ class MainActivity : AppCompatActivity() {
         statusText.setText(R.string.tracking_stopped)
 
         // Update tracking button state
-        toggleTrackingButton.setText(R.string.start_tracking)
+        startTrackingOrCheckNowButton.setText(R.string.start_tracking)
         stopTrackingButton.isEnabled = false
     }
 
