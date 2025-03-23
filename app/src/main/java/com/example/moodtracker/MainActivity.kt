@@ -155,7 +155,7 @@ class MainActivity : AppCompatActivity() {
         // 4. Database row
         viewDatabaseButton.setOnClickListener { viewDatabase() }
         // 5. Debug row
-        showOrRefreshDebugButton.setOnClickListener { updateDebugInfo() }
+        showOrRefreshDebugButton.setOnClickListener { showOrRefreshDebug() }
     }
 
     /**
@@ -288,6 +288,10 @@ class MainActivity : AppCompatActivity() {
             val allPermissionsGranted = checkPermissions()
             requestPermissionsButton.isEnabled = !allPermissionsGranted
         }
+    }
+
+    private fun showOrRefreshDebug() {
+        updateDebugInfo()
     }
 
     private fun updateDebugInfo() {
