@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
     // 4. Database buttons
     private lateinit var viewDatabaseButton: Button
     private lateinit var exportDatabaseButton: Button // Future feature
+    private lateinit var importDatabaseButton: Button // Future feature
     // 5. Debug buttons
     private lateinit var showOrRefreshDebugButton: Button
     private lateinit var hideDebugButton: Button // Future feature
@@ -138,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         // 4. Database row
         viewDatabaseButton = findViewById(R.id.view_database_button)
         //exportDatabaseButton = findViewById(R.id.export_database_button) // Future feature
+        //importDatabaseButton = findViewById(R.id.export_database_button) // Future feature
         // 5. Debug row
         showOrRefreshDebugButton = findViewById(R.id.refresh_button) //show or refresh button
         //hideDebugButton = findViewById(R.id.hide_debug_button) // Future feature
@@ -154,8 +156,11 @@ class MainActivity : AppCompatActivity() {
         importConfigButton.setOnClickListener { importConfig() }
         // 4. Database row
         viewDatabaseButton.setOnClickListener { viewDatabase() }
+        //exportDatabaseButton.setOnClickListener { exportDatabase() }
+        //importDatabaseButton.setOnClickListener { importDatabase() }
         // 5. Debug row
         showOrRefreshDebugButton.setOnClickListener { showOrRefreshDebug() }
+        //hideDebugButton.setOnClickListener { hideDebug() }
     }
 
     /**
@@ -268,11 +273,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Handle permission request result
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
         if (requestCode == PERMISSION_REQUEST_CODE) {
@@ -290,8 +291,146 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun viewConfig() {
+        // Launch in a coroutine
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Use configManager to get the config
+                val config = configManager.loadConfig()
+
+                // Convert to a readable format using existing methods
+                val configText = buildString {
+                    append("Min Interval: ${config.minIntervalMinutes} minutes\n")
+                    append("Max Interval: ${config.maxIntervalMinutes} minutes\n\n")
+
+                    append("Moods:\n")
+                    config.moods.forEach { mood ->
+                        append("- ${mood.name}: Color ${mood.colorHex}")
+                        if (mood.dimension1.isNotEmpty()) {
+                            append(", ${mood.dimension1}")
+                        }
+                        if (mood.dimension2.isNotEmpty()) {
+                            append(", ${mood.dimension2}")
+                        }
+                        if (mood.dimension3.isNotEmpty()) {
+                            append(", ${mood.dimension3}")
+                        }
+                        if (mood.category.isNotEmpty()) {
+                            append(", Category: ${mood.category}")
+                        }
+                        append("\n")
+                    }
+                }
+
+                // Show in an AlertDialog with ScrollView - using same pattern as viewDatabase()
+                val scrollView = ScrollView(this@MainActivity)
+                val textView = TextView(this@MainActivity).apply {
+                    text = configText
+                    setPadding(20, 20, 20, 20)
+                    textSize = 14f
+                }
+
+                scrollView.addView(textView)
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(getString(R.string.config_file_content))
+                    .setView(scrollView)
+                    .setPositiveButton(R.string.close, null)
+                    .show()
+
+            } catch (e: Exception) {
+                statusText.setText(R.string.error_loading_config)
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun exportConfig() {
+        // Export in background
+        CoroutineScope(Dispatchers.IO).launch {
+            val file = configManager.exportConfig()
+            withContext(Dispatchers.Main) {
+                if (file != null) {
+                    statusText.text = getString(R.string.config_exported, file.path)
+                } else {
+                    statusText.text = getString(R.string.export_failed)
+                }
+            }
+        }
+    }
+
+    private fun importConfig() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        importConfigLauncher.launch(intent)
+    }
+
+    private fun viewDatabase() {
+        // Launch in a coroutine
+        CoroutineScope(Dispatchers.Main).launch {
+            try {
+                // Get database entries
+                val entries = withContext(Dispatchers.IO) {
+                    dataManager.getAllEntries()
+                }
+
+                if (entries.isEmpty()) {
+                    // Show message if database is empty
+                    statusText.text = getString(R.string.database_is_empty)
+                    return@launch
+                }
+
+                // Create a simple display text for the entries
+                val entriesText = buildString {
+                    // Format each entry
+                    for (entry in entries) {
+                        val date = Date(entry.timestamp)
+                        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+
+                        append("ID: ${entry.id} | ${dateFormat.format(date)} | ${entry.moodName}\n")
+                    }
+                }
+
+                // Show in an AlertDialog with ScrollView
+                val scrollView = ScrollView(this@MainActivity)
+                val textView = TextView(this@MainActivity).apply {
+                    text = entriesText
+                    setPadding(20, 20, 20, 20)
+                    textSize = 14f
+                }
+
+                scrollView.addView(textView)
+
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle(getString(R.string.database_entries, entries.size))
+                    .setView(scrollView)
+                    .setPositiveButton(R.string.close, null)
+                    .show()
+
+            } catch (e: Exception) {
+                statusText.text = getString(R.string.error_loading_database, e.message)
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun exportDatabase() {
+        //TODO
+    }
+
+    private fun importDatabase() {
+        //TODO
+    }
+
     private fun showOrRefreshDebug() {
+        //TODO
         updateDebugInfo()
+    }
+
+    private fun hideDebug() {
+        //TODO
     }
 
     private fun updateDebugInfo() {
@@ -480,130 +619,5 @@ class MainActivity : AppCompatActivity() {
         }
 
         return sb.toString()
-    }
-
-    private fun viewDatabase() {
-        // Launch in a coroutine
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                // Get database entries
-                val entries = withContext(Dispatchers.IO) {
-                    dataManager.getAllEntries()
-                }
-
-                if (entries.isEmpty()) {
-                    // Show message if database is empty
-                    statusText.text = getString(R.string.database_is_empty)
-                    return@launch
-                }
-
-                // Create a simple display text for the entries
-                val entriesText = buildString {
-                    // Format each entry
-                    for (entry in entries) {
-                        val date = Date(entry.timestamp)
-                        val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
-
-                        append("ID: ${entry.id} | ${dateFormat.format(date)} | ${entry.moodName}\n")
-                    }
-                }
-
-                // Show in an AlertDialog with ScrollView
-                val scrollView = ScrollView(this@MainActivity)
-                val textView = TextView(this@MainActivity).apply {
-                    text = entriesText
-                    setPadding(20, 20, 20, 20)
-                    textSize = 14f
-                }
-
-                scrollView.addView(textView)
-
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle(getString(R.string.database_entries, entries.size))
-                    .setView(scrollView)
-                    .setPositiveButton(R.string.close, null)
-                    .show()
-
-            } catch (e: Exception) {
-                statusText.text = getString(R.string.error_loading_database, e.message)
-                e.printStackTrace()
-            }
-        }
-    }
-
-    private fun exportConfig() {
-        // Export in background
-        CoroutineScope(Dispatchers.IO).launch {
-            val file = configManager.exportConfig()
-            withContext(Dispatchers.Main) {
-                if (file != null) {
-                    statusText.text = getString(R.string.config_exported, file.path)
-                } else {
-                    statusText.text = getString(R.string.export_failed)
-                }
-            }
-        }
-    }
-
-    private fun importConfig() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "application/json"
-        }
-        importConfigLauncher.launch(intent)
-    }
-
-    private fun viewConfig() {
-        // Launch in a coroutine
-        CoroutineScope(Dispatchers.Main).launch {
-            try {
-                // Use configManager to get the config
-                val config = configManager.loadConfig()
-
-                // Convert to a readable format using existing methods
-                val configText = buildString {
-                    append("Min Interval: ${config.minIntervalMinutes} minutes\n")
-                    append("Max Interval: ${config.maxIntervalMinutes} minutes\n\n")
-
-                    append("Moods:\n")
-                    config.moods.forEach { mood ->
-                        append("- ${mood.name}: Color ${mood.colorHex}")
-                        if (mood.dimension1.isNotEmpty()) {
-                            append(", ${mood.dimension1}")
-                        }
-                        if (mood.dimension2.isNotEmpty()) {
-                            append(", ${mood.dimension2}")
-                        }
-                        if (mood.dimension3.isNotEmpty()) {
-                            append(", ${mood.dimension3}")
-                        }
-                        if (mood.category.isNotEmpty()) {
-                            append(", Category: ${mood.category}")
-                        }
-                        append("\n")
-                    }
-                }
-
-                // Show in an AlertDialog with ScrollView - using same pattern as viewDatabase()
-                val scrollView = ScrollView(this@MainActivity)
-                val textView = TextView(this@MainActivity).apply {
-                    text = configText
-                    setPadding(20, 20, 20, 20)
-                    textSize = 14f
-                }
-
-                scrollView.addView(textView)
-
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle(getString(R.string.config_file_content))
-                    .setView(scrollView)
-                    .setPositiveButton(R.string.close, null)
-                    .show()
-
-            } catch (e: Exception) {
-                statusText.setText(R.string.error_loading_config)
-                e.printStackTrace()
-            }
-        }
     }
 }
