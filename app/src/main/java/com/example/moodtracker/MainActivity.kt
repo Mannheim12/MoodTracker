@@ -41,14 +41,24 @@ class MainActivity : AppCompatActivity() {
     private lateinit var configManager: ConfigManager
     private lateinit var dataManager: DataManager
     private lateinit var statusText: TextView
-    private lateinit var toggleTrackingButton: Button
-    private lateinit var stopTrackingButton: Button
-    private lateinit var requestPermissionsButton: Button
-    private lateinit var refreshButton: Button
-    private lateinit var viewDatabaseButton: Button
     private lateinit var debugInfoText: TextView
     private lateinit var batteryOptimizationText: TextView
     private lateinit var importConfigLauncher: ActivityResultLauncher<Intent>
+    // 1. Permission buttons
+    private lateinit var requestPermissionsButton: Button
+    // 2. Control buttons
+    private lateinit var toggleTrackingButton: Button
+    private lateinit var stopTrackingButton: Button
+    // 3. Config buttons
+    private lateinit var viewConfigButton: Button
+    private lateinit var exportConfigButton: Button
+    private lateinit var importConfigButton: Button
+    // 4. Database buttons
+    private lateinit var viewDatabaseButton: Button
+    private lateinit var exportDatabaseButton: Button // Future feature
+    // 5. Debug buttons
+    private lateinit var refreshButton: Button
+    private lateinit var hideDebugButton: Button // Future feature
 
     // Handler for periodic UI updates
     private val handler = Handler(Looper.getMainLooper())
@@ -110,48 +120,42 @@ class MainActivity : AppCompatActivity() {
         configManager = ConfigManager(this)
         dataManager = DataManager(this)
 
-        // Initialize UI elements
+        // Initialize text views
         statusText = findViewById(R.id.status_text)
         batteryOptimizationText = findViewById(R.id.battery_optimization_text)
-        toggleTrackingButton = findViewById(R.id.toggle_tracking_button)
-        stopTrackingButton = findViewById(R.id.stop_tracking_button)
-        requestPermissionsButton = findViewById(R.id.request_permissions_button)
-        refreshButton = findViewById(R.id.refresh_button)
         debugInfoText = findViewById(R.id.debug_info_text)
 
-        // Set up button click listeners
-        toggleTrackingButton.setOnClickListener {
-            toggleTracking()
-        }
-
-        stopTrackingButton.setOnClickListener {
-            stopTracking()
-        }
-
-        requestPermissionsButton.setOnClickListener {
-            requestPermissions()
-        }
-
+        // Initialize all buttons (organized by logical sections)
+        // 1. Permissions row
+        requestPermissionsButton = findViewById(R.id.request_permissions_button)
+        // 2. Tracking controls row
+        toggleTrackingButton = findViewById(R.id.toggle_tracking_button)
+        stopTrackingButton = findViewById(R.id.stop_tracking_button)
+        // 3. Configuration row
+        viewConfigButton = findViewById(R.id.view_config_button)
+        exportConfigButton = findViewById(R.id.export_config_button)
+        importConfigButton = findViewById(R.id.import_config_button)
+        // 4. Database row
         viewDatabaseButton = findViewById(R.id.view_database_button)
-        viewDatabaseButton.setOnClickListener {
-            viewDatabase()
-        }
+        //exportDatabaseButton = findViewById(R.id.export_database_button) // Future feature
+        // 5. Debug row
+        refreshButton = findViewById(R.id.refresh_button) //show or refresh button
+        //hideDebugButton = findViewById(R.id.hide_debug_button) // Future feature
 
-        findViewById<Button>(R.id.view_config_button).setOnClickListener {
-            viewConfig()
-        }
-
-        findViewById<Button>(R.id.export_config_button).setOnClickListener {
-            exportConfig()
-        }
-
-        findViewById<Button>(R.id.import_config_button).setOnClickListener {
-            importConfig()
-        }
-
-        refreshButton.setOnClickListener {
-            updateDebugInfo()
-        }
+        // Set up button click listeners (same order as initialization)
+        // 1. Permissions row
+        requestPermissionsButton.setOnClickListener { requestPermissions() }
+        // 2. Tracking controls row
+        toggleTrackingButton.setOnClickListener { toggleTracking() }
+        stopTrackingButton.setOnClickListener { stopTracking() }
+        // 3. Configuration row
+        viewConfigButton.setOnClickListener { viewConfig() }
+        exportConfigButton.setOnClickListener { exportConfig() }
+        importConfigButton.setOnClickListener { importConfig() }
+        // 4. Database row
+        viewDatabaseButton.setOnClickListener { viewDatabase() }
+        // 5. Debug row
+        refreshButton.setOnClickListener { updateDebugInfo() }
     }
 
     /**
