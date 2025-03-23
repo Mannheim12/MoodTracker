@@ -55,7 +55,6 @@ class MainActivity : AppCompatActivity() {
     private val updateRunnable = object : Runnable {
         override fun run() {
             updateDebugInfo()
-            updateButtonStates()
             handler.postDelayed(this, 10000) // Update every 10 seconds
         }
     }
@@ -152,13 +151,7 @@ class MainActivity : AppCompatActivity() {
 
         refreshButton.setOnClickListener {
             updateDebugInfo()
-            updateButtonStates()
         }
-
-        // Initial UI update
-        updateDebugInfo()
-        updateButtonStates()
-        updateBatteryOptimizationStatus()
     }
 
     /**
@@ -169,9 +162,17 @@ class MainActivity : AppCompatActivity() {
         // Update UI when returning to the app
         MoodCheckWorker.checkTrackingConsistency(this)
         updateDebugInfo()
-        updateButtonStates()
-        updateBatteryOptimizationStatus()
-
+        // Update battery optimization status
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
+        batteryOptimizationText.visibility = if (isIgnoringBatteryOptimizations) View.GONE else View.VISIBLE
+        // Update permission button state
+        val allPermissionsGranted = checkPermissions()
+        requestPermissionsButton.isEnabled = !allPermissionsGranted
+        // Update tracking button state
+        val isActive = MoodCheckWorker.isTrackingActive(this)
+        toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
+        stopTrackingButton.isEnabled = isActive
         // Start periodic updates
         handler.post(updateRunnable)
     }
@@ -213,8 +214,9 @@ class MainActivity : AppCompatActivity() {
             statusText.setText(R.string.service_running)
         }
 
-        // Update button states after action
-        updateButtonStates()
+        // Update tracking button state
+        toggleTrackingButton.setText(R.string.check_now)
+        stopTrackingButton.isEnabled = true
     }
 
     /**
@@ -225,7 +227,10 @@ class MainActivity : AppCompatActivity() {
 
         // Update UI
         statusText.setText(R.string.tracking_stopped)
-        updateButtonStates()
+
+        // Update tracking button state
+        toggleTrackingButton.setText(R.string.start_tracking)
+        stopTrackingButton.isEnabled = false
     }
 
     /**
@@ -239,11 +244,11 @@ class MainActivity : AppCompatActivity() {
         if (permissionsToRequest.isNotEmpty()) {
             statusText.setText(R.string.permissions_requesting)
             ActivityCompat.requestPermissions(this, permissionsToRequest, PERMISSION_REQUEST_CODE)
+            requestPermissionsButton.isEnabled = true
         } else {
             statusText.setText(R.string.permissions_granted)
+            requestPermissionsButton.isEnabled = false
         }
-
-        updateButtonStates()
     }
 
     /**
@@ -256,30 +261,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         return true
-    }
-
-    /**
-     * Update the text and enabled state of all buttons based on current app state
-     */
-    // TODO get rid of this function and integrate the button state updates into the buttons themselves
-    private fun updateButtonStates() {
-        // Update permission button state
-        val allPermissionsGranted = checkPermissions()
-        requestPermissionsButton.isEnabled = !allPermissionsGranted
-
-        // Update tracking button state
-        val isActive = MoodCheckWorker.isTrackingActive(this)
-        toggleTrackingButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
-        stopTrackingButton.isEnabled = isActive
-    }
-
-    /**
-     * Update the battery optimization state on app startup or resume
-     */
-    private fun updateBatteryOptimizationStatus() {
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
-        batteryOptimizationText.visibility = if (isIgnoringBatteryOptimizations) View.GONE else View.VISIBLE
     }
 
     // Handle permission request result
@@ -299,7 +280,9 @@ class MainActivity : AppCompatActivity() {
                 statusText.setText(R.string.permissions_required)
             }
 
-            updateButtonStates()
+            // Update permission button state
+            val allPermissionsGranted = checkPermissions()
+            requestPermissionsButton.isEnabled = !allPermissionsGranted
         }
     }
 
