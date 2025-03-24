@@ -20,6 +20,10 @@
     <string name="request_permissions">Request Permissions</string>
     <string name="refresh">Refresh</string>
     <string name="view_database">View Database</string>
+    <string name="database_exported">Database exported to: %1$s</string>
+    <string name="database_imported">Database imported successfully</string>
+    <string name="show_debug">Show Debug Info</string>
+    <string name="hide_debug">Hide Debug Info</string>
 
     <!-- Status messages -->
     <string name="permissions_needed">Permissions needed to start tracking.</string>

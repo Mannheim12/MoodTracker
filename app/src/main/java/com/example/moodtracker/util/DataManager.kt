@@ -1,6 +1,7 @@
 package com.example.moodtracker.util
 
 import android.content.Context
+import android.net.Uri
 import android.os.Environment
 import com.example.moodtracker.data.AppDatabase
 import com.example.moodtracker.model.Constants
@@ -110,6 +111,85 @@ class DataManager(private val context: Context) {
         } catch (e: Exception) {
             // Handle error
             e.printStackTrace()
+        }
+    }
+
+    /**
+     * Export all entries to a CSV file at the given URI
+     * @param uri The URI to export to
+     * @return true if export was successful, false otherwise
+     */
+    suspend fun exportToUri(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            // Get all entries from Room
+            val entries = database.moodEntryDao().getAllEntries()
+
+            // Use content resolver to write to the URI
+            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                OutputStreamWriter(outputStream).use { writer ->
+                    // Use Apache Commons CSV for proper formatting
+                    val printer = CSVPrinter(
+                        writer,
+                        CSVFormat.DEFAULT.builder()
+                            .setHeader("id", "timestamp", "mood")
+                            .build()
+                    )
+
+                    // Print records
+                    entries.forEach { entry ->
+                        val formattedDate = fullDateFormat.format(Date(entry.timestamp))
+                        printer.printRecord(entry.id, formattedDate, entry.moodName)
+                    }
+
+                    printer.flush()
+                }
+            }
+            return@withContext true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext false
+        }
+    }
+
+    /**
+     * Import mood entries from a CSV file
+     * @param uri The URI of the CSV file to import
+     * @return true if import was successful, false otherwise
+     */
+    suspend fun importFromCSV(uri: Uri): Boolean = withContext(Dispatchers.IO) {
+        try {
+            context.contentResolver.openInputStream(uri)?.use { inputStream ->
+                val reader = inputStream.bufferedReader()
+
+                // Use Apache Commons CSV for proper CSV parsing
+                val csvParser = CSVFormat.DEFAULT.builder()
+                    .setHeader("id", "timestamp", "mood")
+                    .setSkipHeaderRecord(true)
+                    .build()
+                    .parse(reader)
+
+                for (record in csvParser) {
+                    val id = record.get("id")
+                    val timestampStr = record.get("timestamp")
+                    val moodName = record.get("mood")
+
+                    val timestamp = try {
+                        fullDateFormat.parse(timestampStr)?.time ?: System.currentTimeMillis()
+                    } catch (e: Exception) {
+                        System.currentTimeMillis()
+                    }
+
+                    // Create and save the entry
+                    val entry = MoodEntry(id, timestamp, moodName)
+                    database.moodEntryDao().insertOrUpdateEntry(entry)
+                }
+
+                return@withContext true
+            }
+            return@withContext false
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return@withContext false
         }
     }
 

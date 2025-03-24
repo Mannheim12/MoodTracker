@@ -13,8 +13,6 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
  * Handles reading and writing configuration using .json file
  */
 class ConfigManager(private val context: Context) {
-    private val configFileName = Constants.CONFIG_FILE_NAME
-
     // Data class for configuration
     data class Config(
         val minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES,
@@ -25,7 +23,7 @@ class ConfigManager(private val context: Context) {
     // Load config from JSON file, create default if not exists
     fun loadConfig(): Config {
         try {
-            val file = File(context.filesDir, configFileName)
+            val file = File(context.filesDir, Constants.CONFIG_FILE_NAME)
 
             // Create default config file if not exists
             if (!file.exists()) {
@@ -50,7 +48,7 @@ class ConfigManager(private val context: Context) {
     // Save config to file
     private fun saveConfig(config: Config) {
         try {
-            val file = File(context.filesDir, configFileName)
+            val file = File(context.filesDir, Constants.CONFIG_FILE_NAME)
             val json = convertConfigToJson(config)
             file.writeText(json)
         } catch (e: Exception) {
@@ -70,7 +68,15 @@ class ConfigManager(private val context: Context) {
             val json = convertConfigToJson(config)
 
             val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val exportFile = File(downloadsDir, "mood_tracker_config.json")
+            val moodTrackerDir = File(downloadsDir, Constants.EXPORT_DIRECTORY_NAME)
+
+            // Create directory if it doesn't exist
+            if (!moodTrackerDir.exists()) {
+                moodTrackerDir.mkdirs()
+            }
+
+            // Use the constant for filename
+            val exportFile = File(moodTrackerDir, Constants.CONFIG_FILE_NAME)
             exportFile.writeText(json)
             return exportFile
         } catch (e: Exception) {
@@ -102,7 +108,7 @@ class ConfigManager(private val context: Context) {
     }
 
     // Convert to JSON using Moshi
-    private fun convertConfigToJson(config: Config): String {
+    fun convertConfigToJson(config: Config): String {
         val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
         val adapter = moshi.adapter(Config::class.java)
         return adapter.toJson(config)

@@ -44,6 +44,10 @@ class MainActivity : AppCompatActivity() {
     private lateinit var debugInfoText: TextView
     private lateinit var batteryOptimizationText: TextView
     private lateinit var importConfigLauncher: ActivityResultLauncher<Intent>
+    private lateinit var importDatabaseLauncher: ActivityResultLauncher<Intent>
+    private lateinit var exportConfigLauncher: ActivityResultLauncher<Intent>
+    private lateinit var exportDatabaseLauncher: ActivityResultLauncher<Intent>
+    private var pendingConfigExport: String? = null
     // 1. Permission buttons
     private lateinit var requestPermissionsButton: Button
     // 2. Control buttons
@@ -111,6 +115,79 @@ class MainActivity : AppCompatActivity() {
                                 updateDebugInfo()
                             } else {
                                 statusText.setText(R.string.import_failed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        importDatabaseLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        val success = dataManager.importFromCSV(uri)
+                        withContext(Dispatchers.Main) {
+                            if (success) {
+                                statusText.setText(R.string.database_imported)
+                                updateDebugInfo() // Refresh debug info after import
+                            } else {
+                                statusText.setText(R.string.import_failed)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        exportConfigLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    pendingConfigExport?.let { configJson ->
+                        CoroutineScope(Dispatchers.IO).launch {
+                            try {
+                                contentResolver.openOutputStream(uri)?.use { outputStream ->
+                                    outputStream.write(configJson.toByteArray())
+                                }
+                                withContext(Dispatchers.Main) {
+                                    statusText.setText(R.string.config_exported)
+                                }
+                            } catch (e: Exception) {
+                                withContext(Dispatchers.Main) {
+                                    statusText.setText(R.string.export_failed)
+                                }
+                            } finally {
+                                pendingConfigExport = null
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        exportDatabaseLauncher = registerForActivityResult(
+            ActivityResultContracts.StartActivityForResult()
+        ) { result ->
+            if (result.resultCode == RESULT_OK) {
+                result.data?.data?.let { uri ->
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val success = dataManager.exportToUri(uri)
+                            withContext(Dispatchers.Main) {
+                                if (success) {
+                                    statusText.setText(R.string.database_exported)
+                                } else {
+                                    statusText.setText(R.string.export_failed)
+                                }
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                statusText.setText(R.string.export_failed)
+                                e.printStackTrace()
                             }
                         }
                     }
@@ -346,14 +423,25 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun exportConfig() {
-        // Export in background
+        // Export using SAF
         CoroutineScope(Dispatchers.IO).launch {
-            val file = configManager.exportConfig()
-            withContext(Dispatchers.Main) {
-                if (file != null) {
-                    statusText.text = getString(R.string.config_exported, file.path)
-                } else {
-                    statusText.text = getString(R.string.export_failed)
+            try {
+                // Use ConfigManager to get the config as JSON
+                val config = configManager.loadConfig()
+                pendingConfigExport = configManager.convertConfigToJson(config)
+
+                withContext(Dispatchers.Main) {
+                    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_TITLE, Constants.CONFIG_FILE_NAME)
+                    }
+                    exportConfigLauncher.launch(intent)
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    statusText.setText(R.string.export_failed)
+                    e.printStackTrace()
                 }
             }
         }
@@ -417,20 +505,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun exportDatabase() {
-        //TODO
+        // Launch file picker for database export
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/csv"
+            putExtra(Intent.EXTRA_TITLE, Constants.DATA_FILE_NAME)
+        }
+        exportDatabaseLauncher.launch(intent)
     }
 
     private fun importDatabase() {
-        //TODO
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "text/csv"
+        }
+        importDatabaseLauncher.launch(intent)
     }
 
     private fun showOrRefreshDebug() {
-        //TODO
+        // If debug info is hidden, show it
+        if (debugInfoText.visibility != View.VISIBLE) {
+            debugInfoText.visibility = View.VISIBLE
+            showOrRefreshDebugButton.setText(R.string.refresh)
+            hideDebugButton.visibility = View.VISIBLE
+        }
+
+        // Always update the debug info
         updateDebugInfo()
     }
 
     private fun hideDebug() {
-        //TODO
+        // Hide debug info text
+        debugInfoText.visibility = View.GONE
+
+        // Update button states
+        showOrRefreshDebugButton.setText(R.string.show_debug)
+        hideDebugButton.visibility = View.GONE
     }
 
     private fun updateDebugInfo() {
