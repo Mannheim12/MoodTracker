@@ -53,9 +53,6 @@ class DataManager(private val context: Context) {
         // Create entry and save to database
         val entry = MoodEntry(id, timestamp, moodName)
         database.moodEntryDao().insertOrUpdateEntry(entry)
-
-        // Export to CSV
-        exportToCsv()
     }
 
     /**
