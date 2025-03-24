@@ -375,16 +375,19 @@ class MainActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.Main).launch {
             try {
                 // Use configManager to get the config
-                val config = configManager.loadConfig()
+                val config = withContext(Dispatchers.IO) {
+                    configManager.loadConfig()
+                }
 
-                // Convert to a readable format using existing methods
+                // Create a simple display text for the configuration
                 val configText = buildString {
                     append("Min Interval: ${config.minIntervalMinutes} minutes\n")
                     append("Max Interval: ${config.maxIntervalMinutes} minutes\n\n")
+                    append("Moods (${config.moods.size}):\n")
 
-                    append("Moods:\n")
+                    // List each mood in a consistent format
                     config.moods.forEach { mood ->
-                        append("- ${mood.name}: Color ${mood.colorHex}")
+                        append("- ${mood.name}: ${mood.colorHex}")
                         if (mood.dimension1.isNotEmpty()) {
                             append(", ${mood.dimension1}")
                         }
@@ -418,7 +421,7 @@ class MainActivity : AppCompatActivity() {
                     .show()
 
             } catch (e: Exception) {
-                statusText.setText(R.string.error_loading_config)
+                statusText.text = getString(R.string.error_loading_config)
                 e.printStackTrace()
             }
         }
