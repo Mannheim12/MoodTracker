@@ -215,11 +215,11 @@ class MainActivity : AppCompatActivity() {
         importConfigButton = findViewById(R.id.import_config_button)
         // 4. Database row
         viewDatabaseButton = findViewById(R.id.view_database_button)
-        //exportDatabaseButton = findViewById(R.id.export_database_button) // Future feature
-        //importDatabaseButton = findViewById(R.id.export_database_button) // Future feature
+        exportDatabaseButton = findViewById(R.id.export_database_button)
+        importDatabaseButton = findViewById(R.id.import_database_button)
         // 5. Debug row
-        showOrRefreshDebugButton = findViewById(R.id.refresh_button) //show or refresh button
-        //hideDebugButton = findViewById(R.id.hide_debug_button) // Future feature
+        showOrRefreshDebugButton = findViewById(R.id.refresh_button)
+        hideDebugButton = findViewById(R.id.hide_debug_button)
 
         // Set up button click listeners (same order as initialization)
         // 1. Permissions row
@@ -233,11 +233,11 @@ class MainActivity : AppCompatActivity() {
         importConfigButton.setOnClickListener { importConfig() }
         // 4. Database row
         viewDatabaseButton.setOnClickListener { viewDatabase() }
-        //exportDatabaseButton.setOnClickListener { exportDatabase() }
-        //importDatabaseButton.setOnClickListener { importDatabase() }
+        exportDatabaseButton.setOnClickListener { exportDatabase() }
+        importDatabaseButton.setOnClickListener { importDatabase() }
         // 5. Debug row
         showOrRefreshDebugButton.setOnClickListener { showOrRefreshDebug() }
-        //hideDebugButton.setOnClickListener { hideDebug() }
+        hideDebugButton.setOnClickListener { hideDebug() }
     }
 
     /**
@@ -253,8 +253,7 @@ class MainActivity : AppCompatActivity() {
         val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
         batteryOptimizationText.visibility = if (isIgnoringBatteryOptimizations) View.GONE else View.VISIBLE
         // Update permission button state
-        val allPermissionsGranted = checkPermissions()
-        requestPermissionsButton.isEnabled = !allPermissionsGranted
+        updatePermissionButtonVisibility()
         // Update tracking button state
         val isActive = MoodCheckWorker.isTrackingActive(this)
         startTrackingOrCheckNowButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
@@ -330,11 +329,11 @@ class MainActivity : AppCompatActivity() {
         if (permissionsToRequest.isNotEmpty()) {
             statusText.setText(R.string.permissions_requesting)
             ActivityCompat.requestPermissions(this, permissionsToRequest, PERMISSION_REQUEST_CODE)
-            requestPermissionsButton.isEnabled = true
         } else {
             statusText.setText(R.string.permissions_granted)
-            requestPermissionsButton.isEnabled = false
         }
+
+        updatePermissionButtonVisibility()
     }
 
     /**
@@ -363,9 +362,14 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Update permission button state
-            val allPermissionsGranted = checkPermissions()
-            requestPermissionsButton.isEnabled = !allPermissionsGranted
+            updatePermissionButtonVisibility()
         }
+    }
+
+    // Updates permission button visibility based on current permission state
+    private fun updatePermissionButtonVisibility() {
+        val allPermissionsGranted = checkPermissions()
+        requestPermissionsButton.visibility = if (allPermissionsGranted) View.GONE else View.VISIBLE
     }
 
     private fun viewConfig() {
