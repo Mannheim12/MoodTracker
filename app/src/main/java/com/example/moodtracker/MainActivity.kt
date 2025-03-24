@@ -218,7 +218,7 @@ class MainActivity : AppCompatActivity() {
         exportDatabaseButton = findViewById(R.id.export_database_button)
         importDatabaseButton = findViewById(R.id.import_database_button)
         // 5. Debug row
-        showOrRefreshDebugButton = findViewById(R.id.refresh_button)
+        showOrRefreshDebugButton = findViewById(R.id.show_refresh_debug_button)
         hideDebugButton = findViewById(R.id.hide_debug_button)
 
         // Set up button click listeners (same order as initialization)

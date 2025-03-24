@@ -12,6 +12,9 @@
     <string name="notification_channel_name">Mood Check Reminders</string>
     <string name="service_running">Mood Tracker is running in the background.</string>
     <string name="battery_optimization_warning">For reliable mood checks, please exclude this app from battery optimization</string>
+    <string name="section_configuration">Configuration</string>
+    <string name="section_database">Database</string>
+    <string name="section_debug">Debug</string>
 
     <!-- Updated and new button texts -->
     <string name="start_tracking">Start Tracking</string>
@@ -19,9 +22,6 @@
     <string name="stop_tracking">Stop Tracking</string>
     <string name="request_permissions">Request Permissions</string>
     <string name="refresh">Refresh</string>
-    <string name="view_database">View Database</string>
-    <string name="database_exported">Database exported to: %1$s</string>
-    <string name="database_imported">Database imported successfully</string>
     <string name="show_debug">Show Debug Info</string>
     <string name="hide_debug">Hide Debug Info</string>
 
@@ -35,20 +35,25 @@
     <string name="check_triggered">Mood check triggered!</string>
     <string name="debug_info_title">Debug Information</string>
 
-    <!-- Database viewer messages -->
+    <!-- Database messages -->
     <string name="database_is_empty">Database is empty</string>
     <string name="error_loading_database">Error loading database: %1$s</string>
     <string name="database_entries">Database Entries (%1$d)</string>
     <string name="close">Close</string>
+    <string name="import_database">Import</string>
+    <string name="export_database">Export</string>
+    <string name="view_database">View</string>
+    <string name="database_exported">Database exported to: %1$s</string>
+    <string name="database_imported">Database imported successfully</string>
 
     <!-- Config messages -->
-    <string name="export_config">Export Configuration</string>
-    <string name="import_config">Import Configuration</string>
+    <string name="export_config">Export</string>
+    <string name="import_config">Import</string>
     <string name="config_exported">Config exported to: %1$s</string>
     <string name="export_failed">Failed to export config</string>
     <string name="config_imported">Configuration imported successfully</string>
     <string name="import_failed">Failed to import configuration</string>
-    <string name="view_config">View Config</string>
+    <string name="view_config">View</string>
     <string name="config_file_content">Configuration File</string>
     <string name="error_loading_config">Error loading configuration</string>
     <string name="test">test unused</string>

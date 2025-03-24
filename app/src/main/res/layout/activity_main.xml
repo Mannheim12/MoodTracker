@@ -12,6 +12,7 @@
         android:padding="16dp"
         android:gravity="center_horizontal">
 
+        <!-- App Title and Description -->
         <TextView
             android:id="@+id/title_text"
             android:layout_width="wrap_content"
@@ -52,83 +53,167 @@
             android:layout_marginTop="8dp"
             android:visibility="gone" />
 
-        <!-- Primary action buttons in a vertical layout -->
+        <!-- 1. Permissions Section -->
+        <Button
+            android:id="@+id/request_permissions_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/request_permissions"
+            android:layout_marginVertical="8dp" />
+
+        <!-- 2. Tracking Controls Section -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:gravity="center">
+            android:orientation="horizontal"
+            android:layout_marginVertical="8dp">
 
             <Button
                 android:id="@+id/toggle_tracking_button"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/start_tracking"
-                android:layout_marginVertical="4dp" />
+                android:layout_marginEnd="4dp" />
 
             <Button
                 android:id="@+id/stop_tracking_button"
-                android:layout_width="match_parent"
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:text="@string/stop_tracking"
-                android:layout_marginVertical="4dp" />
-
-            <Button
-                android:id="@+id/request_permissions_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/request_permissions"
-                android:layout_marginVertical="4dp" />
-
-            <Button
-                android:id="@+id/refresh_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/refresh"
-                android:layout_marginVertical="4dp" />
-
-            <Button
-                android:id="@+id/view_database_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/view_database"
-                android:layout_marginVertical="4dp" />
-
-            <Button
-                android:id="@+id/export_config_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/export_config"
-                android:layout_marginVertical="4dp" />
-
-            <Button
-                android:id="@+id/import_config_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/import_config"
-                android:layout_marginVertical="4dp" />
-
-            <Button
-                android:id="@+id/view_config_button"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="@string/view_config"
-                android:layout_marginVertical="4dp" />
+                android:layout_marginStart="4dp" />
         </LinearLayout>
 
+        <!-- 3. Configuration Section -->
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/debug_info_title"
+            android:text="@string/section_configuration"
             android:textSize="18sp"
             android:textStyle="bold"
-            android:layout_marginTop="24dp"
+            android:layout_marginTop="16dp"
             android:layout_marginBottom="8dp" />
 
         <View
             android:layout_width="match_parent"
             android:layout_height="1dp"
             android:background="@android:color/darker_gray" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginVertical="8dp">
+
+            <Button
+                android:id="@+id/view_config_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/view_config"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/import_config_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/import_config"
+                android:layout_marginHorizontal="4dp" />
+
+            <Button
+                android:id="@+id/export_config_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/export_config"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
+
+        <!-- 4. Database Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/section_database"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@android:color/darker_gray" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginVertical="8dp">
+
+            <Button
+                android:id="@+id/view_database_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/view_database"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/import_database_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/import_database"
+                android:layout_marginHorizontal="4dp" />
+
+            <Button
+                android:id="@+id/export_database_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/export_database"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
+
+        <!-- 5. Debug Section -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/section_debug"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="8dp" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@android:color/darker_gray" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginVertical="8dp">
+
+            <Button
+                android:id="@+id/show_refresh_debug_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/show_debug"
+                android:layout_marginEnd="4dp" />
+
+            <Button
+                android:id="@+id/hide_debug_button"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="@string/hide_debug"
+                android:layout_marginStart="4dp" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/debug_info_text"
