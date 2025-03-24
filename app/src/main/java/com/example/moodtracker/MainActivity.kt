@@ -506,7 +506,7 @@ class MainActivity : AppCompatActivity() {
     private fun importDatabase() {
         val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
-            type = "text/csv"
+            type = "text/*"
         }
         importDatabaseLauncher.launch(intent)
     }
