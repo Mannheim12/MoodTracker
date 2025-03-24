@@ -47,7 +47,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var importDatabaseLauncher: ActivityResultLauncher<Intent>
     private lateinit var exportConfigLauncher: ActivityResultLauncher<Intent>
     private lateinit var exportDatabaseLauncher: ActivityResultLauncher<Intent>
-    private var pendingConfigExport: String? = null
     // 1. Permission buttons
     private lateinit var requestPermissionsButton: Button
     // 2. Control buttons
@@ -147,21 +146,20 @@ class MainActivity : AppCompatActivity() {
         ) { result ->
             if (result.resultCode == RESULT_OK) {
                 result.data?.data?.let { uri ->
-                    pendingConfigExport?.let { configJson ->
-                        CoroutineScope(Dispatchers.IO).launch {
-                            try {
-                                contentResolver.openOutputStream(uri)?.use { outputStream ->
-                                    outputStream.write(configJson.toByteArray())
-                                }
-                                withContext(Dispatchers.Main) {
+                    CoroutineScope(Dispatchers.IO).launch {
+                        try {
+                            val success = configManager.exportToUri(uri)
+                            withContext(Dispatchers.Main) {
+                                if (success) {
                                     statusText.setText(R.string.config_exported)
-                                }
-                            } catch (e: Exception) {
-                                withContext(Dispatchers.Main) {
+                                } else {
                                     statusText.setText(R.string.export_failed)
                                 }
-                            } finally {
-                                pendingConfigExport = null
+                            }
+                        } catch (e: Exception) {
+                            withContext(Dispatchers.Main) {
+                                statusText.setText(R.string.export_failed)
+                                e.printStackTrace()
                             }
                         }
                     }
@@ -427,28 +425,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun exportConfig() {
-        // Export using SAF
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // Use ConfigManager to get the config as JSON
-                val config = configManager.loadConfig()
-                pendingConfigExport = configManager.convertConfigToJson(config)
-
-                withContext(Dispatchers.Main) {
-                    val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "application/json"
-                        putExtra(Intent.EXTRA_TITLE, Constants.CONFIG_FILE_NAME)
-                    }
-                    exportConfigLauncher.launch(intent)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    statusText.setText(R.string.export_failed)
-                    e.printStackTrace()
-                }
-            }
+        // Launch file picker for config export
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, Constants.CONFIG_FILE_NAME)
         }
+
+        // Call the launcher
+        exportConfigLauncher.launch(intent)
     }
 
     private fun importConfig() {

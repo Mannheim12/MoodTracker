@@ -6,8 +6,6 @@ import android.os.Environment
 import com.example.moodtracker.data.AppDatabase
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.MoodEntry
-import java.io.File
-import java.io.FileOutputStream
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -62,53 +60,6 @@ class DataManager(private val context: Context) {
      */
     suspend fun hasEntryForHour(hourId: String): Boolean = withContext(Dispatchers.IO) {
         return@withContext database.moodEntryDao().hasEntryForHour(hourId)
-    }
-
-    /**
-     * Export all entries to a CSV file in the Downloads/MoodTracker folder
-     */
-    private suspend fun exportToCsv() = withContext(Dispatchers.IO) {
-        try {
-            // Get all entries from Room
-            val entries = database.moodEntryDao().getAllEntries()
-
-            // Get the appropriate directory
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val moodTrackerDir = File(downloadsDir, Constants.EXPORT_DIRECTORY_NAME)
-
-            // Create directory if it doesn't exist
-            if (!moodTrackerDir.exists()) {
-                moodTrackerDir.mkdirs()
-            }
-
-            // Create CSV file
-            val csvFile = File(moodTrackerDir, Constants.DATA_FILE_NAME)
-
-            // Use Apache Commons CSV
-            FileOutputStream(csvFile).use { outputStream ->
-                OutputStreamWriter(outputStream).use { writer ->
-                    // Create CSV printer with standard format
-                    val printer = CSVPrinter(
-                        writer,
-                        CSVFormat.DEFAULT.builder()
-                            .setHeader("id", "timestamp", "mood")
-                            .build()
-                    )
-
-                    // Print records
-                    entries.forEach { entry ->
-                        val formattedDate = fullDateFormat.format(Date(entry.timestamp))
-                        printer.printRecord(entry.id, formattedDate, entry.moodName)
-                    }
-
-                    printer.flush()
-                    printer.close()
-                }
-            }
-        } catch (e: Exception) {
-            // Handle error
-            e.printStackTrace()
-        }
     }
 
     /**

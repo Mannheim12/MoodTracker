@@ -2,7 +2,6 @@ package com.example.moodtracker.util
 
 import android.content.Context
 import android.net.Uri
-import android.os.Environment
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.Mood
 import java.io.File
@@ -61,27 +60,26 @@ class ConfigManager(private val context: Context) {
         saveConfig(Config())
     }
 
-    // Export config to Downloads folder
-    fun exportConfig(): File? {
+    /**
+     * Export config to the given URI
+     * @param uri The URI to export to
+     * @return true if export was successful, false otherwise
+     */
+    fun exportToUri(uri: Uri): Boolean {
         try {
+            // Get the current config
             val config = loadConfig()
             val json = convertConfigToJson(config)
 
-            val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-            val moodTrackerDir = File(downloadsDir, Constants.EXPORT_DIRECTORY_NAME)
-
-            // Create directory if it doesn't exist
-            if (!moodTrackerDir.exists()) {
-                moodTrackerDir.mkdirs()
+            // Write to the URI
+            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                outputStream.write(json.toByteArray())
             }
 
-            // Use the constant for filename
-            val exportFile = File(moodTrackerDir, Constants.CONFIG_FILE_NAME)
-            exportFile.writeText(json)
-            return exportFile
+            return true
         } catch (e: Exception) {
             e.printStackTrace()
-            return null
+            return false
         }
     }
 
@@ -108,7 +106,7 @@ class ConfigManager(private val context: Context) {
     }
 
     // Convert to JSON using Moshi
-    fun convertConfigToJson(config: Config): String {
+    private fun convertConfigToJson(config: Config): String {
         val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
         val adapter = moshi.adapter(Config::class.java)
         return adapter.toJson(config)
