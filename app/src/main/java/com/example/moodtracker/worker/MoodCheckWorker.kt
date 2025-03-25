@@ -54,7 +54,8 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
             // Calculate initial delay
-            val delayMillis = if (isImmediate) 0L else calculateNextInterval(context)
+            // 'Check Now' button temporarily sets interval to 10 seconds
+            val delayMillis = if (isImmediate) 10000L else calculateNextInterval(context)
 
             // Update tracking state
             val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
