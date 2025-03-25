@@ -236,6 +236,11 @@ class MainActivity : AppCompatActivity() {
         // 5. Debug row
         showOrRefreshDebugButton.setOnClickListener { showOrRefreshDebug() }
         hideDebugButton.setOnClickListener { hideDebug() }
+
+        // Hide debug info by default
+        debugInfoText.visibility = View.GONE
+        hideDebugButton.visibility = View.GONE
+        showOrRefreshDebugButton.setText(R.string.show_debug)
     }
 
     /**
@@ -245,7 +250,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         // Update UI when returning to the app
         MoodCheckWorker.checkTrackingConsistency(this)
-        updateDebugInfo()
+        if (debugInfoText.visibility == View.VISIBLE) { updateDebugInfo() }
         // Update battery optimization status
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         val isIgnoringBatteryOptimizations = powerManager.isIgnoringBatteryOptimizations(packageName)
@@ -256,8 +261,8 @@ class MainActivity : AppCompatActivity() {
         val isActive = MoodCheckWorker.isTrackingActive(this)
         startTrackingOrCheckNowButton.setText(if (isActive) R.string.check_now else R.string.start_tracking)
         stopTrackingButton.isEnabled = isActive
-        // Start periodic updates
-        handler.post(updateRunnable)
+        // Start periodic updates if debug info is visible
+        if (debugInfoText.visibility == View.VISIBLE) { handler.post(updateRunnable) }
     }
 
     override fun onPause() {
@@ -520,6 +525,8 @@ class MainActivity : AppCompatActivity() {
             debugInfoText.visibility = View.VISIBLE
             showOrRefreshDebugButton.setText(R.string.refresh)
             hideDebugButton.visibility = View.VISIBLE
+            // Start periodic updates when debug info becomes visible
+            handler.post(updateRunnable)
         }
 
         // Always update the debug info
@@ -533,6 +540,9 @@ class MainActivity : AppCompatActivity() {
         // Update button states
         showOrRefreshDebugButton.setText(R.string.show_debug)
         hideDebugButton.visibility = View.GONE
+
+        // Stop periodic updates when debug info is hidden
+        handler.removeCallbacks(updateRunnable)
     }
 
     private fun updateDebugInfo() {

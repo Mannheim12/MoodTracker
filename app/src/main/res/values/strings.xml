@@ -22,8 +22,8 @@
     <string name="stop_tracking">Stop Tracking</string>
     <string name="request_permissions">Request Permissions</string>
     <string name="refresh">Refresh</string>
-    <string name="show_debug">Show Debug Info</string>
-    <string name="hide_debug">Hide Debug Info</string>
+    <string name="show_debug">Show</string>
+    <string name="hide_debug">Hide</string>
 
     <!-- Status messages -->
     <string name="permissions_needed">Permissions needed to start tracking.</string>
