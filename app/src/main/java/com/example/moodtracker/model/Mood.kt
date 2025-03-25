@@ -22,6 +22,21 @@ data class Mood(
             Color.GRAY // Default color if parsing fails
         }
     }
+    // Determines if text should be white or black based on background color brightness
+    fun getTextColor(): Int {
+        val color = getColor()
+
+        // Extract RGB components
+        val red = Color.red(color)
+        val green = Color.green(color)
+        val blue = Color.blue(color)
+
+        // Calculate luminance using standard formula (perceived brightness)
+        val luminance = (0.299 * red + 0.587 * green + 0.114 * blue) / 255
+
+        // Use white text on dark backgrounds, black text on light backgrounds
+        return if (luminance > 0.5) Color.BLACK else Color.WHITE
+    }
 }
 
 // Data class to represent a mood entry in the database

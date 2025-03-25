@@ -1,7 +1,6 @@
 package com.example.moodtracker.ui
 
 import android.content.Context
-import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.os.Build
 import android.os.Bundle
@@ -188,7 +187,7 @@ class MoodSelectionActivity : AppCompatActivity() {
         val textView = TextView(this).apply {
             text = mood.name
             textSize = 18f
-            setTextColor(Color.WHITE)
+            setTextColor(mood.getTextColor())
             gravity = Gravity.CENTER
         }
 
