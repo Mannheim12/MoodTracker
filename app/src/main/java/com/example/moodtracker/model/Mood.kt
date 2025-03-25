@@ -36,7 +36,7 @@ data class MoodEntry(
 object Constants {
     const val CONFIG_FILE_NAME = "mood_tracker_config.json"
     const val DATA_FILE_NAME = "mood_tracker_data.csv"
-    const val EXPORT_DIRECTORY_NAME = "MoodTracker" // For Downloads folder
+    const val EXPORT_DIRECTORY_NAME = "MoodTracker" // For later
     const val NOTIFICATION_CHANNEL_ID = "mood_tracker_channel"
     const val NOTIFICATION_ID = 1001
     const val WORKER_TAG = "mood_check_worker"
@@ -48,26 +48,26 @@ object Constants {
     // Default moods if config file is missing or corrupt
     val DEFAULT_MOODS = listOf(
         // Positive
-        Mood("Triumphant", "#4CAF50", "Positive", "Inward", "High"),
-        Mood("Content", "#8BC34A", "Positive", "Inward", "Low"),
-        Mood("Exuberant", "#CDDC39", "Positive", "Outward", "High"),
-        Mood("Friendly", "#FFEB3B", "Positive", "Outward", "Low"),
+        Mood("Triumphant", "#FFEB3B", "Positive", "Inward", "High"),    // Bright yellow
+        Mood("Content", "#FFECB3", "Positive", "Inward", "Low"),        // Original pale gold
+        Mood("Exuberant", "#FF6D00", "Positive", "Outward", "High"),    // Pure orange
+        Mood("Friendly", "#FFE0B2", "Positive", "Outward", "Low"),      // Soft cream
 
         // Neutral
-        Mood("Driven", "#FFC107", "Neutral", "Inward", "High"),
-        Mood("Neutral", "#FF9800", "Neutral", "Inward", "Low"),
-        Mood("Collaborative", "#FF5722", "Neutral", "Outward", "High"),
-        Mood("Cordial", "#F44336", "Neutral", "Outward", "Low"),
+        Mood("Driven", "#1976D2", "Neutral", "Inward", "High"),         // Strong blue
+        Mood("Neutral", "#BBDEFB", "Neutral", "Inward", "Low"),         // Very light blue
+        Mood("Collaborative", "#4CAF50", "Neutral", "Outward", "High"), // Green
+        Mood("Cordial", "#A5D6A7", "Neutral", "Outward", "Low"),        // Light green
 
         // Negative
-        Mood("Panicked", "#E91E63", "Negative", "Inward", "High"),
-        Mood("Hopeless", "#9C27B0", "Negative", "Inward", "Low"),
-        Mood("Angry", "#673AB7", "Negative", "Outward", "High"),
-        Mood("Detached", "#3F51B5", "Negative", "Outward", "Low"),
+        Mood("Panicked", "#212121", "Negative", "Inward", "High"),      // Almost black
+        Mood("Hopeless", "#757575", "Negative", "Inward", "Low"),       // Medium gray
+        Mood("Angry", "#FF0000", "Negative", "Outward", "High"),        // Pure red
+        Mood("Detached", "#9E9E9E", "Negative", "Outward", "Low"),      // Light gray
 
         // Other
-        Mood("Aroused", "#2196F3", "Other", "", "", "Other"),
-        Mood("N/A", "#03A9F4", "Other", "", "", "Other"),
-        Mood("Asleep", "#00BCD4", "Other", "", "", "Other")
+        Mood("Aroused", "#E91E63", "Other", "", "", "Other"),   // Pink
+        Mood("N/A", "#F5F5F5", "Other", "", "", "Other"),       // Off-white
+        Mood("Asleep", "#464268", "Other", "", "", "Other")     // Dark purple-gray
     )
 }
