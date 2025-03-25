@@ -111,4 +111,21 @@ class ConfigManager(private val context: Context) {
         val adapter = moshi.adapter(Config::class.java)
         return adapter.toJson(config)
     }
+
+    /**
+     * Reset config to default values
+     * @return true if reset was successful, false otherwise
+     */
+    fun resetToDefaultConfig(): Boolean {
+        return try {
+            // Create a new default config
+            val defaultConfig = Config()
+            // Save it to file
+            saveConfig(defaultConfig)
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+    }
 }

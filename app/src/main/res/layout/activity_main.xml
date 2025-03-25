@@ -131,6 +131,14 @@
                 android:layout_marginStart="4dp" />
         </LinearLayout>
 
+        <!-- TODO this functionality should be better integrated somewhere eventually -->
+        <Button
+            android:id="@+id/reset_config_button"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/reset_default_config"
+            android:layout_marginVertical="8dp" />
+
         <!-- 4. Database Section -->
         <TextView
             android:layout_width="match_parent"

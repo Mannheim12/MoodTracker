@@ -65,8 +65,8 @@ object Constants {
         // Positive
         Mood("Triumphant", "#FFEB3B", "Positive", "Inward", "High"),    // Bright yellow
         Mood("Content", "#FFECB3", "Positive", "Inward", "Low"),        // Original pale gold
-        Mood("Exuberant", "#FF6D00", "Positive", "Outward", "High"),    // Pure orange
-        Mood("Friendly", "#FFE0B2", "Positive", "Outward", "Low"),      // Soft cream
+        Mood("Exuberant", "#FF6F00", "Positive", "Outward", "High"),    // Pure orange
+        Mood("Friendly", "#FFB74D", "Positive", "Outward", "Low"),      // Soft cream
 
         // Neutral
         Mood("Driven", "#1976D2", "Neutral", "Inward", "High"),         // Strong blue

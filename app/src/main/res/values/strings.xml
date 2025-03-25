@@ -57,4 +57,7 @@
     <string name="config_file_content">Configuration File</string>
     <string name="error_loading_config">Error loading configuration</string>
     <string name="test">test unused</string>
+    <string name="reset_default_config">Reset to Default</string>
+    <string name="config_reset">Configuration reset to default</string>
+    <string name="reset_failed">Failed to reset configuration</string>
 </resources>

@@ -63,6 +63,8 @@ class MainActivity : AppCompatActivity() {
     // 5. Debug buttons
     private lateinit var showOrRefreshDebugButton: Button
     private lateinit var hideDebugButton: Button // Future feature
+    // temporary button
+    private lateinit var resetConfigButton: Button
 
     // Handler for periodic UI updates
     private val handler = Handler(Looper.getMainLooper())
@@ -218,6 +220,8 @@ class MainActivity : AppCompatActivity() {
         // 5. Debug row
         showOrRefreshDebugButton = findViewById(R.id.show_refresh_debug_button)
         hideDebugButton = findViewById(R.id.hide_debug_button)
+        // temporary
+        resetConfigButton = findViewById(R.id.reset_config_button)
 
         // Set up button click listeners (same order as initialization)
         // 1. Permissions row
@@ -236,6 +240,9 @@ class MainActivity : AppCompatActivity() {
         // 5. Debug row
         showOrRefreshDebugButton.setOnClickListener { showOrRefreshDebug() }
         hideDebugButton.setOnClickListener { hideDebug() }
+        // temporary
+        resetConfigButton.setOnClickListener { resetToDefaultConfig() }
+
 
         // Hide debug info by default
         debugInfoText.visibility = View.GONE
@@ -726,5 +733,20 @@ class MainActivity : AppCompatActivity() {
         }
 
         return sb.toString()
+    }
+
+    // TODO integrate this functionality into the app better someday
+    private fun resetToDefaultConfig() {
+        CoroutineScope(Dispatchers.IO).launch {
+            val success = configManager.resetToDefaultConfig()
+            withContext(Dispatchers.Main) {
+                if (success) {
+                    statusText.setText(R.string.config_reset)
+                    updateDebugInfo() // Refresh debug info
+                } else {
+                    statusText.setText(R.string.reset_failed)
+                }
+            }
+        }
     }
 }
