@@ -157,14 +157,6 @@ class DataManager(private val context: Context) {
     }
 
     /**
-     * Get the path where CSV is exported for display purposes
-     */
-    fun getExportPath(): String {
-        val downloadsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
-        return "${downloadsDir.absolutePath}/${Constants.EXPORT_DIRECTORY_NAME}/${Constants.DATA_FILE_NAME}"
-    }
-
-    /**
      * Get all mood entries
      * @return List of all mood entries
      */

@@ -611,11 +611,6 @@ class MainActivity : AppCompatActivity() {
 
         sb.append("\n")
 
-        // CSV Export info
-        sb.append("CSV Export Path: ")
-        val exportPath = dataManager.getExportPath()
-        sb.append("$exportPath\n")
-
         return@withContext sb.toString()
     }
 
