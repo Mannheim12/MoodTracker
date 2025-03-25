@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.mannheim.moodtracker"
+    namespace = "com.example.moodtracker"
     compileSdk = 35  // Using current stable version
 
     defaultConfig {
-        applicationId = "com.mannheim.moodtracker"
+        applicationId = "com.example.moodtracker"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
