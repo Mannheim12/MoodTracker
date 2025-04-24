@@ -124,7 +124,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
             calendar.apply {
                 set(Calendar.MINUTE, 59)
-                set(Calendar.SECOND, 59)
+                set(Calendar.SECOND, 44) // 15 second buffer to avoid edge cases
                 set(Calendar.MILLISECOND, 999)
             }
             val nextHourEnd = calendar.timeInMillis
