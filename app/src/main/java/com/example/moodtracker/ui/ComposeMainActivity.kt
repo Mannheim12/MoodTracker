@@ -27,6 +27,10 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.width
 import com.example.moodtracker.theme.MoodTrackerTheme
 import com.example.moodtracker.ui.screens.AnalyticsScreen
 import com.example.moodtracker.ui.screens.HomeScreen
@@ -54,33 +58,40 @@ fun MoodTrackerApp() {
 
         Scaffold(
             bottomBar = {
-                NavigationBar(
-                    modifier = Modifier.padding(horizontal = 32.dp) // Cluster icons toward center
+                Box(
+                    modifier = Modifier.fillMaxWidth(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    val navBackStackEntry by navController.currentBackStackEntryAsState()
-                    val currentDestination = navBackStackEntry?.destination
+                    // Fixed width container for navigation
+                    NavigationBar(
+                        modifier = Modifier.width(320.dp)
+                    ) {
+                        val navBackStackEntry by navController.currentBackStackEntryAsState()
+                        val currentDestination = navBackStackEntry?.destination
 
-                    items.forEach { screen ->
-                        NavigationBarItem(
-                            icon = {
-                                Icon(
-                                    screen.icon,
-                                    contentDescription = screen.title,
-                                    modifier = Modifier.size(40.dp)
-                                )
-                            },
-                            // Remove the label parameter entirely
-                            selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                            onClick = {
-                                navController.navigate(screen.route) {
-                                    popUpTo(navController.graph.findStartDestination().id) {
-                                        saveState = true
+                        items.forEach { screen ->
+                            NavigationBarItem(
+                                icon = {
+                                    Icon(
+                                        screen.icon,
+                                        contentDescription = screen.title,
+                                        modifier = Modifier.size(40.dp)
+                                    )
+                                },
+                                selected = currentDestination?.hierarchy?.any {
+                                    it.route == screen.route
+                                } == true,
+                                onClick = {
+                                    navController.navigate(screen.route) {
+                                        popUpTo(navController.graph.findStartDestination().id) {
+                                            saveState = true
+                                        }
+                                        launchSingleTop = true
+                                        restoreState = true
                                     }
-                                    launchSingleTop = true
-                                    restoreState = true
                                 }
-                            }
-                        )
+                            )
+                        }
                     }
                 }
             }
