@@ -38,7 +38,12 @@ android {
     }
 
     buildFeatures {
-        viewBinding = true  // For potential XML layouts
+        viewBinding = true // For XML layouts
+        compose = true // For Compose support
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
     }
 
     packaging {
@@ -82,4 +87,20 @@ dependencies {
     // Config
     implementation(libs.moshi)
     implementation(libs.moshi.kotlin)
+
+    // Compose dependencies
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.compose.icons)
+
+    // Navigation & Activity with Compose
+    implementation(libs.navigation.compose)
+    implementation(libs.activity.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
+
+    // Material icons
+    implementation(libs.compose.material.icons.extended)
 }
