@@ -12,6 +12,8 @@ import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import com.example.moodtracker.worker.MoodCheckWorker
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -44,6 +46,12 @@ data class TodaysMoodsUiState(
     val message: String? = null // e.g., "No moods recorded in the last 24 hours."
 )
 
+// New UI State for Debug Information
+data class DebugInfoUiState(
+    val isDebugModeEnabled: Boolean = false,
+    val configContent: String = ""
+)
+
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val dataManager = DataManager(application)
@@ -59,6 +67,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _todaysMoodsUiState = MutableStateFlow(TodaysMoodsUiState())
     val todaysMoodsUiState: StateFlow<TodaysMoodsUiState> = _todaysMoodsUiState.asStateFlow()
 
+    private val _debugInfoUiState = MutableStateFlow(DebugInfoUiState())
+    val debugInfoUiState: StateFlow<DebugInfoUiState> = _debugInfoUiState.asStateFlow()
+
+
     // For time formatting, considering user's preference
     private val userTimeFormat: String by lazy { configManager.loadConfig().timeFormat }
     private val displayHourFormat: SimpleDateFormat by lazy {
@@ -69,10 +81,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
     private val moodIdHourFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
 
-
     init {
         viewModelScope.launch {
-            allConfigMoods = configManager.loadMoods() // Load once
+            //allConfigMoods = configManager.loadMoods() // Load once
             loadData()
         }
     }
@@ -82,8 +93,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _trackingStatusUiState.update { it.copy(isLoading = true) }
             _todaysMoodsUiState.update { it.copy(isLoading = true) }
 
+            // Load and process debug information
+            val currentConfig = configManager.loadConfig()
+            val isDebugEnabled = currentConfig.debugModeEnabled
+
             fetchTrackingStatus()
             fetchTodaysMoods()
+            fetchDebugInfo(currentConfig) // Pass the already loaded config
 
             _trackingStatusUiState.update { it.copy(isLoading = false) }
             _todaysMoodsUiState.update { it.copy(isLoading = false) }
@@ -124,6 +140,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val displayEntries = processMoodEntriesForDisplay(rawEntries)
         _todaysMoodsUiState.update {
             it.copy(moods = displayEntries, message = null, isLoading = false)
+        }
+    }
+
+    private fun fetchDebugInfo(config: ConfigManager.Config) {
+        val debugEnabled = config.debugModeEnabled
+        var configString = "" // Default to empty if not in debug mode or no content needed
+        if (debugEnabled) {
+            // Using data class toString() for simplicity.
+            // This provides a structured, interpretable string.
+            configString = config.toString()
+        }
+        _debugInfoUiState.update {
+            it.copy(isDebugModeEnabled = debugEnabled, configContent = configString)
         }
     }
 

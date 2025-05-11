@@ -9,12 +9,17 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline // For inactive tracking
@@ -40,12 +45,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.moodtracker.ui.Screen // Your Screen sealed class
+import com.example.moodtracker.viewmodel.DebugInfoUiState
 import com.example.moodtracker.viewmodel.DisplayMoodEntry
 import com.example.moodtracker.viewmodel.HomeViewModel
 import com.example.moodtracker.viewmodel.TrackingStatusUiState
@@ -59,6 +66,7 @@ fun HomeScreen(
 ) {
     val trackingStatusState by homeViewModel.trackingStatusUiState.collectAsState()
     val todaysMoodsState by homeViewModel.todaysMoodsUiState.collectAsState()
+    val debugInfoState by homeViewModel.debugInfoUiState.collectAsState()
 
     // Reload data when the screen becomes visible
     LaunchedEffect(Unit) {
@@ -111,6 +119,12 @@ fun HomeScreen(
             }
             item {
                 MissedEntriesCard()
+            }
+            // Conditionally display Debug Info Card
+            if (debugInfoState.isDebugModeEnabled) {
+                item {
+                    DebugInfoDisplayCard(debugInfoState)
+                }
             }
         }
     }
@@ -270,6 +284,45 @@ fun MissedEntriesCard() {
                 "List of missed entries and ability to fill them coming soon.",
                 style = MaterialTheme.typography.bodyMedium
             )
+        }
+    }
+}
+
+@Composable
+fun DebugInfoDisplayCard(state: DebugInfoUiState) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            Text(
+                "Debug Information",
+                style = MaterialTheme.typography.titleLarge, // Make title a bit larger
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "Config File Contents:",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 300.dp) // Limit height
+                    .verticalScroll(rememberScrollState()) // Make content scrollable
+                    .padding(all = 4.dp) // Padding inside the scrollable box
+            ) {
+                Text(
+                    text = state.configContent,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontFamily = FontFamily.Monospace // Use monospace for better readability of config
+                )
+            }
         }
     }
 }
