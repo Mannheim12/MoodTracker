@@ -14,10 +14,46 @@ import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 class ConfigManager(private val context: Context) {
     // Data class for configuration
     data class Config(
+        // Mood & Tracking
         val minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES,
         val maxIntervalMinutes: Int = Constants.MAX_INTERVAL_MINUTES,
-        val moods: List<Mood> = Constants.DEFAULT_MOODS
+        val moods: List<Mood> = Constants.DEFAULT_MOODS,
+        // Auto-sleep hours (placeholders, actual implementation will be more complex)
+        val autoSleepStartHour: Int? = null, // 24-hour format
+        val autoSleepEndHour: Int? = null,   // 24-hour format
+
+        // Data Management
+        val autoExportFrequency: String = AutoExportFrequency.OFF, // Default to off
+
+        // Appearance
+        val timeFormat: String = TimeFormat.SYSTEM_DEFAULT, // Could be "12h", "24h", or "system"
+        val appTheme: String = AppTheme.SYSTEM, // "light", "dark", "system"
+
+        // Advanced
+        val debugModeEnabled: Boolean = false
     )
+
+    // Define constants for new setting options for type safety and clarity
+    object TimeFormat {
+        const val H12 = "12h"
+        const val H24 = "24h"
+        const val SYSTEM_DEFAULT = "system" // Or you might resolve this to 12h/24h at load time
+    }
+
+    object AppTheme {
+        const val LIGHT = "light"
+        const val DARK = "dark"
+        const val SYSTEM = "system"
+    }
+
+    object AutoExportFrequency {
+        const val OFF = "off"
+        const val DAILY = "daily" // Example, can add more specific ones
+        const val WEEKLY_SUNDAY = "weekly_sunday"
+        const val WEEKLY_MONDAY = "weekly_monday"
+        const val MONTHLY_FIRST = "monthly_first"
+    }
+
 
     // Load config from JSON file, create default if not exists
     fun loadConfig(): Config {
@@ -26,7 +62,7 @@ class ConfigManager(private val context: Context) {
 
             // Create default config file if not exists
             if (!file.exists()) {
-                saveDefaultConfig()
+                saveDefaultConfig() // This will save a Config() with new defaults
                 return Config()
             }
 
@@ -35,7 +71,11 @@ class ConfigManager(private val context: Context) {
             return parseConfig(json)
         } catch (e: Exception) {
             e.printStackTrace()
-            return Config() // Return defaults on error
+            // If parsing fails (e.g., old config file without new fields),
+            // returning a default Config might be a good recovery strategy.
+            // Alternatively, you could try to merge or handle migration.
+            // For simplicity now, return default.
+            return Config()
         }
     }
 
@@ -45,7 +85,7 @@ class ConfigManager(private val context: Context) {
     }
 
     // Save config to file
-    private fun saveConfig(config: Config) {
+    fun saveConfig(config: Config) { // Made public to be called from ViewModel
         try {
             val file = File(context.filesDir, Constants.CONFIG_FILE_NAME)
             val json = convertConfigToJson(config)
@@ -94,6 +134,7 @@ class ConfigManager(private val context: Context) {
             }
         } catch (e: Exception) {
             e.printStackTrace()
+            // Consider more robust error handling or feedback for malformed JSON
         }
         return false
     }
@@ -102,6 +143,7 @@ class ConfigManager(private val context: Context) {
     private fun parseConfig(json: String): Config {
         val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
         val adapter = moshi.adapter(Config::class.java)
+        // If fromJson returns null (e.g. malformed json), return a default config
         return adapter.fromJson(json) ?: Config()
     }
 

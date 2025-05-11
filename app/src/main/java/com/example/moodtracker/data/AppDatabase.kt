@@ -10,11 +10,10 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.moodtracker.model.MoodEntry
 
-@Database(entities = [MoodEntry::class], version = 1)
+@Database(entities = [MoodEntry::class], version = 1) // Add exportSchema = false if not providing schemas
 abstract class AppDatabase : RoomDatabase() {
     abstract fun moodEntryDao(): MoodEntryDao
 
-    // DAO interface defined here to avoid creating another file
     @Dao
     interface MoodEntryDao {
         @Query("SELECT * FROM mood_entries ORDER BY id DESC")
@@ -28,6 +27,12 @@ abstract class AppDatabase : RoomDatabase() {
 
         @Query("SELECT EXISTS(SELECT 1 FROM mood_entries WHERE id = :hourId)")
         fun hasEntryForHour(hourId: String): Boolean
+
+        @Query("DELETE FROM mood_entries") // New method
+        suspend fun deleteAllEntries()
+
+        @Query("SELECT * FROM mood_entries WHERE timestamp >= :sinceTimestamp ORDER BY timestamp DESC")
+        suspend fun getEntriesSince(sinceTimestamp: Long): List<MoodEntry>
     }
 
     companion object {
@@ -40,7 +45,11 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "mood_tracker_database"
-                ).build()
+                )
+                    // If you're not providing migration paths for schema changes,
+                    // you might need .fallbackToDestructiveMigration() during development.
+                    // For production, proper migrations are essential.
+                    .build()
                 INSTANCE = instance
                 instance
             }

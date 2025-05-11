@@ -2,9 +2,9 @@ package com.example.moodtracker.util
 
 import android.content.Context
 import android.net.Uri
-import android.os.Environment
+// import android.os.Environment // Not used directly for export path
 import com.example.moodtracker.data.AppDatabase
-import com.example.moodtracker.model.Constants
+// import com.example.moodtracker.model.Constants // Not directly used here for paths
 import com.example.moodtracker.model.MoodEntry
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
@@ -191,5 +191,25 @@ class DataManager(private val context: Context) {
 
         val sdfHour = SimpleDateFormat("h a", Locale.getDefault())
         return sdfHour.format(calendar.time)
+    }
+
+    /**
+     * Deletes all mood entries from the database.
+     */
+    suspend fun resetDatabase() = withContext(Dispatchers.IO) {
+        database.moodEntryDao().deleteAllEntries()
+    }
+
+    /**
+     * Retrieves mood entries recorded since a given timestamp, ordered by most recent first.
+     * @param sinceTimestamp The Unix timestamp (milliseconds) from which to retrieve entries.
+     * @return List of mood entries.
+     */
+    suspend fun getMoodEntriesSince(sinceTimestamp: Long): List<MoodEntry> = withContext(Dispatchers.IO) {
+        // Ensure your MoodEntryDao has a corresponding query method.
+        // If your existing getAllEntries is already sorted by timestamp descending,
+        // you could filter in memory, but a direct DB query is more efficient for larger datasets.
+        // Let's assume we add a new DAO method for this.
+        return@withContext database.moodEntryDao().getEntriesSince(sinceTimestamp)
     }
 }
