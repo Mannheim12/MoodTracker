@@ -12,8 +12,6 @@ import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import com.example.moodtracker.worker.MoodCheckWorker
-import com.squareup.moshi.Moshi
-import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +20,6 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
-import java.util.TimeZone
 import java.util.concurrent.TimeUnit
 import java.util.Date
 
@@ -253,7 +250,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val minutes = TimeUnit.MILLISECONDS.toMinutes(diffMillis) % 60
 
         return when {
-            hours > 0 -> "Next check in $hours hr ${minutes} min"
+            hours > 0 -> "Next check in $hours hr $minutes min"
             minutes > 0 -> "Next check in $minutes min"
             else -> "Next check: Soon"
         }

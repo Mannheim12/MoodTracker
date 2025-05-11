@@ -2,9 +2,7 @@ package com.example.moodtracker.util
 
 import android.content.Context
 import android.net.Uri
-// import android.os.Environment // Not used directly for export path
 import com.example.moodtracker.data.AppDatabase
-// import com.example.moodtracker.model.Constants // Not directly used here for paths
 import com.example.moodtracker.model.MoodEntry
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat

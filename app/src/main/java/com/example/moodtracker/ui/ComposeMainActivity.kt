@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
-import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -59,24 +58,7 @@ fun MoodTrackerApp() {
 
             val multiplePermissionsLauncher = rememberLauncherForActivityResult(
                 ActivityResultContracts.RequestMultiplePermissions()
-            ) { permissionsMap: Map<String, Boolean> ->
-                var allGranted = true
-                permissionsMap.forEach { (permission, isGranted) ->
-                    Log.d("PermissionsLog", "Permission $permission granted: $isGranted")
-                    if (!isGranted) {
-                        allGranted = false
-                        // TODO: Optionally handle specific permission denials more explicitly
-                        // e.g., update a ViewModel to reflect that notifications are disabled.
-                    }
-                }
-                if (allGranted) {
-                    Log.d("PermissionsLog", "All requested permissions granted.")
-                } else {
-                    Log.w("PermissionsLog", "Some permissions were denied.")
-                    // TODO: Optionally show a Toast or a non-intrusive message
-                    // if critical permissions like notifications are denied.
-                }
-            }
+            ) { }
 
             LaunchedEffect(Unit) {
                 if (permissionsToRequest.isNotEmpty()) {
@@ -85,13 +67,8 @@ fun MoodTrackerApp() {
                     }.toTypedArray()
 
                     if (ungrantedPermissions.isNotEmpty()) {
-                        Log.d("PermissionsLog", "Requesting ungranted permissions: ${ungrantedPermissions.joinToString()}")
                         multiplePermissionsLauncher.launch(ungrantedPermissions)
-                    } else {
-                        Log.d("PermissionsLog", "All necessary permissions already granted.")
                     }
-                } else {
-                    Log.d("PermissionsLog", "No permissions to request at launch for this API level.")
                 }
             }
 
