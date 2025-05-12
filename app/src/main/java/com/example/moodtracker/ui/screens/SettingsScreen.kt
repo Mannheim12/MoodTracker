@@ -2,6 +2,8 @@ package com.example.moodtracker.ui.screens
 
 import android.annotation.SuppressLint
 import androidx.activity.compose.rememberLauncherForActivityResult
+import android.content.Context
+import android.os.PowerManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -20,6 +22,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -158,6 +161,25 @@ fun SettingsScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 8.dp) // Add some horizontal padding for list items
         ) {
+            // Battery Optimization Note
+            item {
+                val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+                val isIgnoringOptimizations = powerManager.isIgnoringBatteryOptimizations(context.packageName)
+                if (!isIgnoringOptimizations) {
+                    Card(
+                        modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                    ) {
+                        Text(
+                            text = "For best results, exclude this app from battery optimization in your phone's settings.",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                    }
+                }
+            }
             // Mood & Tracking Section
             item { SettingsSectionHeader("Mood & Tracking") }
             item {
