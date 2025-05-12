@@ -7,6 +7,9 @@ import com.example.moodtracker.model.Mood
 import java.io.File
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 /**
  * Handles reading and writing configuration using .json file
@@ -168,6 +171,48 @@ class ConfigManager(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
             false
+        }
+    }
+
+    /**
+     * Formats an hour ID (like "2023111522") into a displayable hour string
+     * respecting the user's 12/24h preference.
+     * Assumes the input hourId, if not empty, is in the valid "yyyyMMddHH" format.
+     * Uses the device's default locale for formatting.
+     *
+     * @param hourId The hour ID string (e.g., "2023111522").
+     * @return The formatted hour string (e.g., "10 PM" or "22:00"), or "N/A" if input is invalid.
+     */
+    fun formatHourIdForDisplay(hourId: String): String {
+        if (hourId.length != 10) { // Basic validation for yyyyMMddHH
+            return "N/A"
+        }
+
+        try {
+            val hourOfDay = hourId.takeLast(2).toInt() // Extract hour (00-23)
+
+            // Determine the correct format based on user settings
+            val userTimeFormat = loadConfig().timeFormat // Accesses its own config
+            val displayPattern = when (userTimeFormat) {
+                TimeFormat.H24 -> "HH:00" // 24-hour format (e.g., 14:00)
+                else -> "h a" // 12-hour format (e.g., 2 PM) for H12 or SYSTEM_DEFAULT
+            }
+            val sdfHour = SimpleDateFormat(displayPattern, Locale.getDefault())
+
+            val calendar = Calendar.getInstance().apply {
+                set(Calendar.HOUR_OF_DAY, hourOfDay)
+                set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            return sdfHour.format(calendar.time)
+
+        } catch (e: NumberFormatException) {
+            e.printStackTrace()
+            return "N/A"
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return "N/A"
         }
     }
 }

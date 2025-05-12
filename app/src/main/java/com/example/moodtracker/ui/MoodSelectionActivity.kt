@@ -26,7 +26,6 @@ import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.Calendar
 
 /**
  * Activity that displays the mood selection grid
@@ -85,15 +84,19 @@ class MoodSelectionActivity : AppCompatActivity() {
         val hourId = prefs.getString(MoodCheckWorker.PREF_HOURLY_ID, "") ?: ""
 
         // Format the Hour ID
-        val formattedHourText = dataManager.formatHourIdForDisplay(hourId)
+        val formattedHourText = configManager.formatHourIdForDisplay(hourId)
 
         // Get and format the current time
-        val sdfCurrent = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val userTimeFormat = configManager.loadConfig().timeFormat
+        val currentTimePattern = when (userTimeFormat) {
+            ConfigManager.TimeFormat.H24 -> "HH:mm" // e.g., 14:05
+            else -> "h:mm a" // e.g., 2:05 PM
+        }
+        val sdfCurrent = SimpleDateFormat(currentTimePattern, Locale.getDefault())
         val currentTimeString = sdfCurrent.format(Date())
 
         // Set the combined text
         val timeString = getString(R.string.mood_prompt_with_time, formattedHourText, currentTimeString)
-
         timeTextView.text = timeString
 
         // Set a timeout to automatically close the activity if no mood is selected

@@ -30,6 +30,7 @@ import java.util.concurrent.TimeUnit
 class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
 
     private val dataManager = DataManager(applicationContext)
+    private val configManager = ConfigManager(applicationContext)
     private val prefs: SharedPreferences = applicationContext.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
     companion object {
@@ -297,7 +298,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
         // Get the hourID text
         val hourId = prefs.getString(PREF_HOURLY_ID, "") ?: ""
-        val hourText = dataManager.formatHourIdForDisplay(hourId)
+        val hourText = configManager.formatHourIdForDisplay(hourId)
 
         // Build the notification
         val notification = NotificationCompat.Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_ID)
