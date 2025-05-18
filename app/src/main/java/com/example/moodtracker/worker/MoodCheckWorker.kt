@@ -13,6 +13,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import com.example.moodtracker.R
 import com.example.moodtracker.model.Constants
+import com.example.moodtracker.ui.ComposeMoodSelectionActivity
 import com.example.moodtracker.ui.MoodSelectionActivity
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
@@ -216,12 +217,12 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
             // Generate hourly ID for this check
             val currentHourId = withContext(Dispatchers.IO) {
-                dataManager.generateHourId()
+                dataManager.generateHourId(now)
             }
 
             // Handle previous notification if not already handled
             withContext(Dispatchers.IO) {
-                handlePreviousNotification()
+                handlePreviousNotification(now)
             }
 
             // Store the current hour ID for this check
@@ -231,7 +232,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             prefs.edit().putLong(PREF_LAST_CHECK_TIME, now).apply()
 
             // Show the mood check notification
-            showMoodCheckNotification()
+            showMoodCheckNotification(currentHourId)
 
             // Calculate next interval - use the companion method to avoid code duplication
             val nextIntervalMillis = calculateNextInterval(applicationContext)
@@ -261,7 +262,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
      * Check and handle previous notification if not already handled
      * Marks previous notification as "Asleep" if not interacted with
      */
-    private suspend fun handlePreviousNotification() {
+    private suspend fun handlePreviousNotification(currentTimeOfWork: Long) {
         val lastHourId = prefs.getString(PREF_HOURLY_ID, "")
 
         // If we have a previous check recorded
@@ -282,10 +283,10 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
     /**
      * Shows the notification that persists until next check
      */
-    private fun showMoodCheckNotification() {
+    private fun showMoodCheckNotification(hourIdForSelection: String) {
         // Create intent for notification tap
-        val intent = Intent(applicationContext, MoodSelectionActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        val intent = Intent(applicationContext, ComposeMoodSelectionActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
 
         // Create pending intent
@@ -297,8 +298,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         )
 
         // Get the hourID text
-        val hourId = prefs.getString(PREF_HOURLY_ID, "") ?: ""
-        val hourText = configManager.formatHourIdForDisplay(hourId)
+        val hourText = configManager.formatHourIdForDisplay(hourIdForSelection)
 
         // Build the notification
         val notification = NotificationCompat.Builder(applicationContext, Constants.NOTIFICATION_CHANNEL_ID)
