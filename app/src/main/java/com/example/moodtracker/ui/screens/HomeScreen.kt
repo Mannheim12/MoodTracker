@@ -9,13 +9,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -40,6 +37,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -51,6 +50,7 @@ import com.example.moodtracker.viewmodel.DisplayMoodEntry
 import com.example.moodtracker.viewmodel.HomeViewModel
 import com.example.moodtracker.viewmodel.TrackingStatusUiState
 import com.example.moodtracker.viewmodel.TodaysMoodsUiState
+import com.example.moodtracker.viewmodel.MoodDebugInfo
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -190,7 +190,6 @@ fun TodaysMoodsCard(state: TodaysMoodsUiState) {
 fun MoodTimeline(moods: List<DisplayMoodEntry>) {
     if (moods.isEmpty()) return
 
-    val timelineHeight = (moods.size * 60).dp // Approximate height
     val pointRadius = 6.dp
     val lineWidth = 2.dp
     val textStartPadding = 16.dp
@@ -226,7 +225,7 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
                             color = Color.DarkGray,
                             radius = pointRadius.toPx(),
                             center = center,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx())
+                            style = Stroke(width = 1.dp.toPx())
                         )
                     }
                 }
@@ -294,29 +293,159 @@ fun DebugInfoDisplayCard(state: DebugInfoUiState) {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 "Debug Information",
-                style = MaterialTheme.typography.titleLarge, // Make title a bit larger
-                fontWeight = FontWeight.Bold
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.primary
             )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Worker Status Section
+            DebugSection(title = "WORKER STATUS") {
+                DebugRow("Next Check", state.nextCheckTime)
+                DebugRow("Time Until Next", state.timeUntilNextCheck)
+                DebugRow("Worker Status", state.workerStatus)
+                DebugRow("Last Check", state.lastCheckTime)
+                DebugRow("Time Since Last", state.timeSinceLastCheck)
+                DebugRow("Tracking Enabled", if (state.trackingEnabled) "YES" else "NO")
+            }
+
             Spacer(Modifier.height(12.dp))
-            Text(
-                "Config File Contents:",
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(Modifier.height(6.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(max = 300.dp) // Limit height
-                    .verticalScroll(rememberScrollState()) // Make content scrollable
-                    .padding(all = 4.dp) // Padding inside the scrollable box
-            ) {
-                Text(
-                    text = state.configContent,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontFamily = FontFamily.Monospace // Use monospace for better readability of config
-                )
+
+            // Permissions Status Section
+            DebugSection(title = "PERMISSIONS STATUS") {
+                state.permissionsStatus.forEach { (permission, granted) ->
+                    DebugRow(permission, if (granted) "GRANTED" else "DENIED")
+                }
+                DebugRow("Battery Optimization Exempt", if (state.batteryOptimizationExempt) "YES" else "NO")
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Database Status Section
+            DebugSection(title = "DATABASE STATUS") {
+                DebugRow("Total Entries", state.databaseEntryCount.toString())
+                DebugWideRow("Latest Entry", state.latestEntry)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Configuration Section
+            DebugSection(title = "CONFIGURATION") {
+                DebugRow("Min Interval", "${state.minInterval} minutes")
+                DebugRow("Max Interval", "${state.maxInterval} minutes")
+                DebugRow("Time Format", state.timeFormat)
+                DebugRow("App Theme", state.appTheme)
+                DebugRow("Auto-export", state.autoExportFrequency)
+                DebugRow("Auto-sleep Start", state.autoSleepStartHour)
+                DebugRow("Auto-sleep End", state.autoSleepEndHour)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // Moods Section
+            DebugSection(title = "MOODS (${state.moods.size})") {
+                state.moods.forEach { mood ->
+                    DebugMoodRow(mood)
+                }
             }
         }
+    }
+}
+
+@Composable
+fun DebugSection(title: String, content: @Composable () -> Unit) {
+    Column {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(4.dp))
+        content()
+    }
+}
+
+@Composable
+fun DebugRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface,
+            textAlign = TextAlign.End
+        )
+    }
+}
+
+@Composable
+fun DebugWideRow(label: String, value: String) {
+    Column {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodySmall,
+            fontFamily = FontFamily.Monospace,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(start = 16.dp, top = 2.dp)
+        )
+    }
+}
+
+@Composable
+fun DebugMoodRow(mood: MoodDebugInfo) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Top
+    ) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Color indicator
+            Box(
+                modifier = Modifier
+                    .size(12.dp)
+                    .padding(end = 4.dp)
+            ) {
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    drawCircle(
+                        color = try { Color(android.graphics.Color.parseColor(mood.colorHex)) } catch (e: Exception) { Color.Gray },
+                        radius = size.minDimension / 2
+                    )
+                }
+            }
+            Text(
+                text = mood.name,
+                style = MaterialTheme.typography.bodySmall,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+        Text(
+            text = mood.properties,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.End,
+            modifier = Modifier.padding(start = 8.dp)
+        )
     }
 }

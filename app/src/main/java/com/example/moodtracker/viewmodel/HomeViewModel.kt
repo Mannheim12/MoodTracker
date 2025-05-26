@@ -1,12 +1,19 @@
 package com.example.moodtracker.viewmodel
 
 import android.app.Application
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.os.PowerManager
 import android.content.Context
 import android.content.SharedPreferences
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.core.content.ContextCompat
+import androidx.work.WorkManager
+import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.Mood
 import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.util.ConfigManager
@@ -17,6 +24,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
@@ -46,7 +55,34 @@ data class TodaysMoodsUiState(
 // New UI State for Debug Information
 data class DebugInfoUiState(
     val isDebugModeEnabled: Boolean = false,
-    val configContent: String = ""
+    // Worker Status
+    val nextCheckTime: String = "",
+    val timeUntilNextCheck: String = "",
+    val workerStatus: String = "",
+    val lastCheckTime: String = "",
+    val timeSinceLastCheck: String = "",
+    val trackingEnabled: Boolean = false,
+    // Permissions Status
+    val permissionsStatus: Map<String, Boolean> = emptyMap(),
+    val batteryOptimizationExempt: Boolean = false,
+    // Database Status
+    val databaseEntryCount: Int = 0,
+    val latestEntry: String = "",
+    // Configuration
+    val minInterval: Int = 0,
+    val maxInterval: Int = 0,
+    val timeFormat: String = "",
+    val appTheme: String = "",
+    val autoExportFrequency: String = "",
+    val autoSleepStartHour: String = "",
+    val autoSleepEndHour: String = "",
+    val moods: List<MoodDebugInfo> = emptyList()
+)
+
+data class MoodDebugInfo(
+    val name: String,
+    val colorHex: String,
+    val properties: String // Compact representation of dimensions/category
 )
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -80,7 +116,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            //allConfigMoods = configManager.loadMoods() // Load once
+            allConfigMoods = withContext(Dispatchers.IO) { configManager.loadMoods() }
             loadData()
         }
     }
@@ -142,14 +178,163 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun fetchDebugInfo(config: ConfigManager.Config) {
         val debugEnabled = config.debugModeEnabled
-        var configString = "" // Default to empty if not in debug mode or no content needed
-        if (debugEnabled) {
-            // Using data class toString() for simplicity.
-            // This provides a structured, interpretable string.
-            configString = config.toString()
+        if (!debugEnabled) {
+            _debugInfoUiState.update { it.copy(isDebugModeEnabled = false) }
+            return
         }
-        _debugInfoUiState.update {
-            it.copy(isDebugModeEnabled = debugEnabled, configContent = configString)
+
+        viewModelScope.launch {
+            // Worker Status
+            val nextCheckTimestamp = prefs.getLong(MoodCheckWorker.PREF_NEXT_CHECK_TIME, 0L)
+            val lastCheckTimestamp = prefs.getLong(MoodCheckWorker.PREF_LAST_CHECK_TIME, 0L)
+            val trackingEnabled = MoodCheckWorker.isTrackingActive(getApplication())
+
+            val nextCheckTime = if (nextCheckTimestamp > 0) {
+                SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(nextCheckTimestamp))
+            } else "Not scheduled"
+
+            val timeUntilNext = if (nextCheckTimestamp > System.currentTimeMillis()) {
+                val diff = nextCheckTimestamp - System.currentTimeMillis()
+                val hours = TimeUnit.MILLISECONDS.toHours(diff)
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+                val seconds = TimeUnit.MILLISECONDS.toSeconds(diff) % 60
+                "$hours hr $minutes min $seconds sec"
+            } else "N/A"
+
+            val lastCheckTime = if (lastCheckTimestamp > 0) {
+                SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(lastCheckTimestamp))
+            } else "Never"
+
+            val timeSinceLast = if (lastCheckTimestamp > 0) {
+                val diff = System.currentTimeMillis() - lastCheckTimestamp
+                val hours = TimeUnit.MILLISECONDS.toHours(diff)
+                val minutes = TimeUnit.MILLISECONDS.toMinutes(diff) % 60
+                val seconds = TimeUnit.MILLISECONDS.toSeconds(diff) % 60
+                "$hours hr $minutes min $seconds sec"
+            } else "N/A"
+
+            // Worker Status
+            val workerStatus = try {
+                val workManager = WorkManager.getInstance(getApplication())
+                val workInfosFuture = workManager.getWorkInfosByTag(Constants.WORKER_TAG)
+                val workInfos = workInfosFuture.get(1000, TimeUnit.MILLISECONDS)
+                if (workInfos.isNotEmpty() && workInfos.any { !it.state.isFinished }) {
+                    "SCHEDULED"
+                } else {
+                    "NOT SCHEDULED"
+                }
+            } catch (e: Exception) {
+                "ERROR CHECKING"
+            }
+
+            // Permissions Status
+            val permissions = mutableMapOf<String, Boolean>()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissions["POST_NOTIFICATIONS"] = ContextCompat.checkSelfPermission(
+                    getApplication(), Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+            permissions["VIBRATE"] = ContextCompat.checkSelfPermission(
+                getApplication(), Manifest.permission.VIBRATE
+            ) == PackageManager.PERMISSION_GRANTED
+
+            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P) {
+                permissions["WRITE_EXTERNAL_STORAGE"] = ContextCompat.checkSelfPermission(
+                    getApplication(), Manifest.permission.WRITE_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+                permissions["READ_EXTERNAL_STORAGE"] = ContextCompat.checkSelfPermission(
+                    getApplication(), Manifest.permission.READ_EXTERNAL_STORAGE
+                ) == PackageManager.PERMISSION_GRANTED
+            }
+
+            // Battery Optimization
+            val powerManager = getApplication<Application>().getSystemService(Context.POWER_SERVICE) as PowerManager
+            val batteryOptExempt = powerManager.isIgnoringBatteryOptimizations(getApplication<Application>().packageName)
+
+            // Database Status
+            val entryCount = withContext(Dispatchers.IO) { dataManager.getEntryCount() }
+            val latestEntryInfo = withContext(Dispatchers.IO) {
+                dataManager.getMostRecentEntry()?.let { entry ->
+                    val date = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date(entry.timestamp))
+                    "${entry.id} at $date (${entry.moodName})"
+                } ?: "No entries yet"
+            }
+
+            // Configuration Analysis
+            val moods = allConfigMoods
+            val moodDebugInfoList = moods.map { mood ->
+                val properties = buildString {
+                    if (mood.dimension1.isNotEmpty()) append(mood.dimension1)
+                    if (mood.dimension2.isNotEmpty()) {
+                        if (isNotEmpty()) append(", ")
+                        append(mood.dimension2)
+                    }
+                    if (mood.dimension3.isNotEmpty()) {
+                        if (isNotEmpty()) append(", ")
+                        append(mood.dimension3)
+                    }
+                    if (mood.category.isNotEmpty()) {
+                        if (isNotEmpty()) append(", ")
+                        append("Category: ${mood.category}")
+                    }
+                }
+                MoodDebugInfo(
+                    name = mood.name,
+                    colorHex = mood.colorHex,
+                    properties = properties
+                )
+            }
+
+            // Format configuration values
+            val timeFormatDisplay = when(config.timeFormat) {
+                ConfigManager.TimeFormat.H12 -> "12-hour"
+                ConfigManager.TimeFormat.H24 -> "24-hour"
+                ConfigManager.TimeFormat.SYSTEM_DEFAULT -> "System Default"
+                else -> config.timeFormat
+            }
+
+            val appThemeDisplay = when(config.appTheme) {
+                ConfigManager.AppTheme.LIGHT -> "Light"
+                ConfigManager.AppTheme.DARK -> "Dark"
+                ConfigManager.AppTheme.SYSTEM -> "System"
+                else -> config.appTheme
+            }
+
+            val autoExportDisplay = when(config.autoExportFrequency) {
+                ConfigManager.AutoExportFrequency.OFF -> "Off"
+                ConfigManager.AutoExportFrequency.DAILY -> "Daily"
+                ConfigManager.AutoExportFrequency.WEEKLY_SUNDAY -> "Weekly (Sunday)"
+                ConfigManager.AutoExportFrequency.WEEKLY_MONDAY -> "Weekly (Monday)"
+                ConfigManager.AutoExportFrequency.MONTHLY_FIRST -> "Monthly (1st)"
+                else -> config.autoExportFrequency
+            }
+
+            val autoSleepStart = config.autoSleepStartHour?.let { "$it:00" } ?: "Not Set"
+            val autoSleepEnd = config.autoSleepEndHour?.let { "$it:00" } ?: "Not Set"
+
+            _debugInfoUiState.update {
+                it.copy(
+                    isDebugModeEnabled = true,
+                    nextCheckTime = nextCheckTime,
+                    timeUntilNextCheck = timeUntilNext,
+                    workerStatus = workerStatus,
+                    lastCheckTime = lastCheckTime,
+                    timeSinceLastCheck = timeSinceLast,
+                    trackingEnabled = trackingEnabled,
+                    permissionsStatus = permissions,
+                    batteryOptimizationExempt = batteryOptExempt,
+                    databaseEntryCount = entryCount,
+                    latestEntry = latestEntryInfo,
+                    minInterval = config.minIntervalMinutes,
+                    maxInterval = config.maxIntervalMinutes,
+                    timeFormat = timeFormatDisplay,
+                    appTheme = appThemeDisplay,
+                    autoExportFrequency = autoExportDisplay,
+                    autoSleepStartHour = autoSleepStart,
+                    autoSleepEndHour = autoSleepEnd,
+                    moods = moodDebugInfoList
+                )
+            }
         }
     }
 
