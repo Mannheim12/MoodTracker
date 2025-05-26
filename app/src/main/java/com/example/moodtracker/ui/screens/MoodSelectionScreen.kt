@@ -47,7 +47,7 @@ fun MoodSelectionScreen(
 
     LaunchedEffect(uiState.moodRecorded) {
         if (uiState.moodRecorded) {
-            if (uiState.promptText.contains("Timeout")) { // Keep timeout delay if needed
+            if (uiState.promptText.contains("Timeout")) {
                 delay(2000)
             }
             onCloseScreen()
@@ -57,7 +57,6 @@ fun MoodSelectionScreen(
     BackHandler {
         viewModel.handleBackPress {
             // Closure is handled by the LaunchedEffect observing uiState.moodRecorded
-            // No explicit call to onCloseScreen() needed here as uiState.moodRecorded will trigger it
         }
     }
 
@@ -71,55 +70,82 @@ fun MoodSelectionScreen(
             )
         }
     ) { paddingValues ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
                 .padding(16.dp),
-            contentAlignment = Alignment.Center
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (uiState.isLoading) {
-                CircularProgressIndicator()
-            } else if (uiState.error != null) {
+            // Top section: Prompt and time text
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 16.dp, bottom = 24.dp)
+            ) {
                 Text(
-                    text = "Error: ${uiState.error}",
-                    color = MaterialTheme.colorScheme.error,
-                    textAlign = TextAlign.Center
+                    text = uiState.promptText,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-            } else {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(
-                        text = uiState.promptText,
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 4.dp)
+
+                Text(
+                    text = uiState.timeText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            // Main content area where mood grid will go
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(48.dp)
                     )
-                    Text(
-                        text = uiState.timeText,
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    )
-                    Text(
-                        text = "Mood selection grid is temporarily unavailable.",
-                        fontSize = 18.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(top = 24.dp)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(onClick = {
-                        // Manually select a default mood like "N/A" or "Asleep" and close
-                        viewModel.onMoodSelected("N/A") {
-                            // onCloseScreen() // Handled by LaunchedEffect
+                } else {
+                    // Placeholder content
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "Mood selection grid will appear here",
+                            style = MaterialTheme.typography.bodyLarge,
+                            textAlign = TextAlign.Center,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(bottom = 16.dp)
+                        )
+
+                        Button(
+                            onClick = {
+                                viewModel.onMoodSelected("N/A") {
+                                    // Handled by LaunchedEffect
+                                }
+                            }
+                        ) {
+                            Text("Record 'N/A' and Close")
                         }
-                    }) {
-                        Text("Record 'N/A' and Close")
                     }
                 }
+            }
+
+            // Timeout indicator at bottom
+            if (!uiState.isLoading && !uiState.moodRecorded) {
+                Text(
+                    text = "Auto-closes in 60 seconds if no mood selected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
             }
         }
     }
 }
-
-// Removed MoodSelectionContent and MoodButton composables as they are not used in placeholder
