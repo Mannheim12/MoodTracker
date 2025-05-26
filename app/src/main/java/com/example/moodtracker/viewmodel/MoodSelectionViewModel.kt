@@ -5,9 +5,8 @@ import android.content.Context
 import android.os.CountDownTimer
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-// import com.example.moodtracker.model.Mood // Not needed for placeholder
-// import com.example.moodtracker.model.Constants // Not needed for placeholder
-import com.example.moodtracker.util.ConfigManager // Still needed for time formatting
+import com.example.moodtracker.model.Mood // <<< ADDED IMPORT
+import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import com.example.moodtracker.worker.MoodCheckWorker
 import kotlinx.coroutines.Dispatchers
@@ -22,10 +21,10 @@ import java.util.Date
 import java.util.Locale
 
 data class MoodSelectionUiState(
-    // val allDisplayableMoods: List<Mood> = emptyList(), // Removed for placeholder
+    val moods: List<Mood> = emptyList(), // <<< ADDED
     val promptText: String = "How are you feeling right now?",
     val timeText: String = "",
-    val isLoading: Boolean = true, // Will be set to false quickly
+    val isLoading: Boolean = true,
     val moodRecorded: Boolean = false,
     val error: String? = null
 )
@@ -46,9 +45,15 @@ class MoodSelectionViewModel(
     private var currentHourId: String = ""
 
     init {
+        loadMoodsAndTimes() // <<< MODIFIED: Call new combined function
+    }
+
+    // vvv ADDED FUNCTION vvv
+    private fun loadMoodsAndTimes() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
+                // Fetch hour ID and time text first
                 currentHourId = withContext(Dispatchers.IO) {
                     val context = getApplication<Application>().applicationContext
                     val idFromPref = context
@@ -69,11 +74,16 @@ class MoodSelectionViewModel(
                     "For $formattedHourText (Current: $currentTimeString)"
                 }
 
+                // Then load moods
+                val loadedMoods = withContext(Dispatchers.IO) {
+                    configManager.loadMoods()
+                }
+
                 _uiState.update {
                     it.copy(
-                        // allDisplayableMoods = emptyList(), // Not needed
+                        moods = loadedMoods, // Set the loaded moods
                         timeText = timeTextResult,
-                        isLoading = false,
+                        isLoading = false, // Set isLoading to false after all data is loaded
                         error = null
                     )
                 }
@@ -88,10 +98,10 @@ class MoodSelectionViewModel(
             }
         }
     }
+    // ^^^ ADDED FUNCTION ^^^
 
-    // Removed loadAndPrepareMoodsAsync() as it's not used for placeholder
 
-    fun onMoodSelected(moodName: String, onMoodRecordedCallback: () -> Unit) { // Renamed callback
+    fun onMoodSelected(moodName: String, onMoodRecordedCallback: () -> Unit) {
         if (_uiState.value.moodRecorded) return
 
         viewModelScope.launch {
@@ -140,12 +150,10 @@ class MoodSelectionViewModel(
     fun handleBackPress(onMoodRecordedForBackPress: () -> Unit) {
         if (!_uiState.value.moodRecorded) {
             viewModelScope.launch {
-                // Ensure prompt text reflects back press action if desired, or keep it simple
-                // _uiState.update { it.copy(promptText = "Recording 'Asleep' due to back press.") }
                 onMoodSelected("Asleep", onMoodRecordedForBackPress)
             }
         } else {
-            onMoodRecordedForBackPress() // Mood already selected, just proceed with closing
+            onMoodRecordedForBackPress()
         }
     }
 
