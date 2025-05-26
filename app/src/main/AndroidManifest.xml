@@ -49,25 +49,6 @@
             android:launchMode="singleTask"
             android:taskAffinity="" />
 
-        <!-- Commented out to test new UI -->
-        <!--<activity
-            android:name=".MainActivity"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
-
-        <activity
-            android:name=".ui.MoodSelectionActivity"
-            android:theme="@style/Theme.MoodTracker.NoActionBar"
-            android:exported="false"
-            android:showOnLockScreen="true"
-            android:excludeFromRecents="true" />-->
-
-        <!-- Using WorkManager and notifications instead of a foreground service -->
-
         <receiver
             android:name=".receiver.BootReceiver"
             android:enabled="true"

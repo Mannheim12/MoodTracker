@@ -82,7 +82,7 @@ class ConfigManager(private val context: Context) {
         }
     }
 
-    // Load just the moods - for MoodSelectionActivity
+    // Load just the moods - for Mood Selection Activity
     fun loadMoods(): List<Mood> {
         return loadConfig().moods
     }

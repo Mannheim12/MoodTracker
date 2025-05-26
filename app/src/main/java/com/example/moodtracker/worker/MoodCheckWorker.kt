@@ -14,7 +14,6 @@ import androidx.work.WorkerParameters
 import com.example.moodtracker.R
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.ui.ComposeMoodSelectionActivity
-import com.example.moodtracker.ui.MoodSelectionActivity
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import kotlinx.coroutines.Dispatchers
