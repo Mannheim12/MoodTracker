@@ -51,7 +51,6 @@ data class MoodEntry(
 object Constants {
     const val CONFIG_FILE_NAME = "mood_tracker_config.json"
     const val DATA_FILE_NAME = "mood_tracker_data.csv"
-    const val EXPORT_DIRECTORY_NAME = "MoodTracker" // For later
     const val NOTIFICATION_CHANNEL_ID = "mood_tracker_channel"
     const val NOTIFICATION_ID = 1001
     const val WORKER_TAG = "mood_check_worker"
@@ -81,7 +80,6 @@ object Constants {
         Mood("Detached", "#9E9E9E", "Negative", "Outward", "Low"),      // Light gray
 
         // Other
-        Mood("Aroused", "#E91E63", "Other", "", "", "Other"),   // Pink
         Mood("N/A", "#F5F5F5", "Other", "", "", "Other"),       // Off-white
         Mood("Asleep", "#464268", "Other", "", "", "Other")     // Dark purple-gray
     )

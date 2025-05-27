@@ -126,9 +126,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _trackingStatusUiState.update { it.copy(isLoading = true) }
             _todaysMoodsUiState.update { it.copy(isLoading = true) }
 
-            // Load and process debug information
+            // Load and process config information
             val currentConfig = configManager.loadConfig()
-            val isDebugEnabled = currentConfig.debugModeEnabled
 
             fetchTrackingStatus()
             fetchTodaysMoods()
@@ -419,9 +418,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         // The grouping logic will handle the range text.
         val tempCal = Calendar.getInstance()
         tempCal.timeInMillis = calendar.timeInMillis
-        if(isEndTime) { // If it's an end time for a block, show the start of the *next* hour
-            // tempCal.add(Calendar.HOUR_OF_DAY, 1) // This might be too complex for simple display
-        }
         return displayHourFormat.format(tempCal.time)
     }
 
