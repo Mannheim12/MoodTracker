@@ -1,6 +1,6 @@
 [versions]
 # Plugin versions
-agp = "8.2.2"  # Android Gradle Plugin
+agp = "8.8.2"  # Android Gradle Plugin
 kotlin = "1.9.22"  # Updated Kotlin version
 
 # Library versions
