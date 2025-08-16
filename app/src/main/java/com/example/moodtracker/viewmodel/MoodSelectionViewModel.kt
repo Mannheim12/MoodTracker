@@ -5,7 +5,8 @@ import android.content.Context
 import android.os.CountDownTimer
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.moodtracker.model.Mood // <<< ADDED IMPORT
+import com.example.moodtracker.model.Constants
+import com.example.moodtracker.model.Mood
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import com.example.moodtracker.worker.MoodCheckWorker
@@ -21,7 +22,7 @@ import java.util.Date
 import java.util.Locale
 
 data class MoodSelectionUiState(
-    val moods: List<Mood> = emptyList(), // <<< ADDED
+    val moods: List<Mood> = emptyList(),
     val promptText: String = "How are you feeling right now?",
     val timeText: String = "",
     val isLoading: Boolean = true,
@@ -45,10 +46,9 @@ class MoodSelectionViewModel(
     private var currentHourId: String = ""
 
     init {
-        loadMoodsAndTimes() // <<< MODIFIED: Call new combined function
+        loadMoodsAndTimes()
     }
 
-    // vvv ADDED FUNCTION vvv
     private fun loadMoodsAndTimes() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -74,16 +74,15 @@ class MoodSelectionViewModel(
                     "For $formattedHourText (Current: $currentTimeString)"
                 }
 
-                // Then load moods
-                val loadedMoods = withContext(Dispatchers.IO) {
-                    configManager.loadMoods()
-                }
+                // Load moods from hardcoded list instead of config
+                // Take first 10 moods (the grid moods), excluding Asleep and N/A
+                val loadedMoods = Constants.DEFAULT_MOODS.take(10)
 
                 _uiState.update {
                     it.copy(
-                        moods = loadedMoods, // Set the loaded moods
+                        moods = loadedMoods,
                         timeText = timeTextResult,
-                        isLoading = false, // Set isLoading to false after all data is loaded
+                        isLoading = false,
                         error = null
                     )
                 }
@@ -98,8 +97,6 @@ class MoodSelectionViewModel(
             }
         }
     }
-    // ^^^ ADDED FUNCTION ^^^
-
 
     fun onMoodSelected(moodName: String, onMoodRecordedCallback: () -> Unit) {
         if (_uiState.value.moodRecorded) return

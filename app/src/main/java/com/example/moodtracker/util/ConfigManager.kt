@@ -33,7 +33,20 @@ class ConfigManager(private val context: Context) {
         val appTheme: String = AppTheme.SYSTEM, // "light", "dark", "system"
 
         // Advanced
-        val debugModeEnabled: Boolean = false
+        val debugModeEnabled: Boolean = false,
+
+        // Version for migration support
+        val configVersion: Int = 2 // Increment when making breaking changes
+    )
+
+    // Old Mood structure for migration
+    private data class OldMood(
+        val name: String,
+        val colorHex: String,
+        val dimension1: String = "",
+        val dimension2: String = "",
+        val dimension3: String = "",
+        val category: String = ""
     )
 
     // Define constants for new setting options for type safety and clarity
@@ -65,19 +78,65 @@ class ConfigManager(private val context: Context) {
 
             // Create default config file if not exists
             if (!file.exists()) {
-                saveDefaultConfig() // This will save a Config() with new defaults
+                saveDefaultConfig()
                 return Config()
             }
 
             // Read config from file
             val json = file.readText()
+
+            // Check if it's an old format config (version 1 or missing version)
+            if (!json.contains("\"configVersion\"") || json.contains("\"dimension1\"")) {
+                // Migrate old config
+                return migrateOldConfig(json)
+            }
+
             return parseConfig(json)
         } catch (e: Exception) {
             e.printStackTrace()
-            // If parsing fails (e.g., old config file without new fields),
-            // returning a default Config might be a good recovery strategy.
-            // Alternatively, you could try to merge or handle migration.
-            // For simplicity now, return default.
+            // If parsing fails, save and return default config
+            saveDefaultConfig()
+            return Config()
+        }
+    }
+
+    // Migrate old config format to new format
+    private fun migrateOldConfig(json: String): Config {
+        try {
+            // Parse as generic map to preserve all fields
+            val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+            val mapAdapter = moshi.adapter<Map<String, Any>>(Map::class.java)
+            val configMap = mapAdapter.fromJson(json) ?: return Config()
+
+            // Extract non-mood fields
+            val minInterval = (configMap["minIntervalMinutes"] as? Double)?.toInt() ?: Constants.MIN_INTERVAL_MINUTES
+            val maxInterval = (configMap["maxIntervalMinutes"] as? Double)?.toInt() ?: Constants.MAX_INTERVAL_MINUTES
+            val autoSleepStart = (configMap["autoSleepStartHour"] as? Double)?.toInt()
+            val autoSleepEnd = (configMap["autoSleepEndHour"] as? Double)?.toInt()
+            val autoExport = configMap["autoExportFrequency"] as? String ?: AutoExportFrequency.OFF
+            val timeFormat = configMap["timeFormat"] as? String ?: TimeFormat.SYSTEM_DEFAULT
+            val appTheme = configMap["appTheme"] as? String ?: AppTheme.SYSTEM
+            val debugMode = configMap["debugModeEnabled"] as? Boolean ?: false
+
+            // For moods, just use the new defaults since the old categories don't map cleanly to VAD
+            val newConfig = Config(
+                minIntervalMinutes = minInterval,
+                maxIntervalMinutes = maxInterval,
+                moods = Constants.DEFAULT_MOODS, // Use new VAD-based moods
+                autoSleepStartHour = autoSleepStart,
+                autoSleepEndHour = autoSleepEnd,
+                autoExportFrequency = autoExport,
+                timeFormat = timeFormat,
+                appTheme = appTheme,
+                debugModeEnabled = debugMode,
+                configVersion = 2
+            )
+
+            // Save the migrated config
+            saveConfig(newConfig)
+            return newConfig
+        } catch (e: Exception) {
+            e.printStackTrace()
             return Config()
         }
     }
@@ -131,13 +190,19 @@ class ConfigManager(private val context: Context) {
         try {
             context.contentResolver.openInputStream(uri)?.use { input ->
                 val json = input.bufferedReader().readText()
-                val config = parseConfig(json)
-                saveConfig(config)
+
+                // Check if imported config needs migration
+                if (!json.contains("\"configVersion\"") || json.contains("\"dimension1\"")) {
+                    val config = migrateOldConfig(json)
+                    saveConfig(config)
+                } else {
+                    val config = parseConfig(json)
+                    saveConfig(config)
+                }
                 return true
             }
         } catch (e: Exception) {
             e.printStackTrace()
-            // Consider more robust error handling or feedback for malformed JSON
         }
         return false
     }

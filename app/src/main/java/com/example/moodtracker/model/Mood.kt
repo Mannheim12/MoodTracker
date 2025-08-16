@@ -9,11 +9,9 @@ import androidx.room.PrimaryKey
 data class Mood(
     val name: String,
     val colorHex: String,
-    // Optional attributes for positioning in the grid
-    val dimension1: String = "", // positive/neutral/negative
-    val dimension2: String = "", // inward/outward
-    val dimension3: String = "", // high/low energy
-    val category: String = ""    // for "Other" moods
+    val valence: Int = 0,    // -1, 0, +1
+    val arousal: Int = 0,    // -1, 0, +1
+    val dominance: Int = 0   // -1, 0, +1
 ) {
     fun getColor(): Int {
         return try {
@@ -61,26 +59,26 @@ object Constants {
 
     // Default moods if config file is missing or corrupt
     val DEFAULT_MOODS = listOf(
-        // Positive
-        Mood("Triumphant", "#FFEB3B", "Positive", "Inward", "High"),    // Bright yellow
-        Mood("Content", "#FFECB3", "Positive", "Inward", "Low"),        // Original pale gold
-        Mood("Exuberant", "#FF6F00", "Positive", "Outward", "High"),    // Pure orange
-        Mood("Friendly", "#FFB74D", "Positive", "Outward", "Low"),      // Soft cream
+        // Top row (V=+1)
+        Mood("Joyful", "#FFD600", valence=1, arousal=1, dominance=0),      // Bright yellow
+        Mood("Happy", "#FF9A1F", valence=1, arousal=0, dominance=0),       // Tangerine orange
+        Mood("Content", "#8DD466", valence=1, arousal=-1, dominance=0),    // Soft spring green
 
-        // Neutral
-        Mood("Driven", "#1976D2", "Neutral", "Inward", "High"),         // Strong blue
-        Mood("Neutral", "#BBDEFB", "Neutral", "Inward", "Low"),         // Very light blue
-        Mood("Collaborative", "#4CAF50", "Neutral", "Outward", "High"), // Green
-        Mood("Cordial", "#A5D6A7", "Neutral", "Outward", "Low"),        // Light green
+        // Middle row (V=0)
+        Mood("Driven", "#1E8CFF", valence=0, arousal=1, dominance=0),      // Clear sky blue
+        Mood("Neutral", "#5FAFAF", valence=0, arousal=0, dominance=0),     // Subtle teal
+        Mood("Bored", "#B8AD73", valence=0, arousal=-1, dominance=0),      // Muted khaki
 
-        // Negative
-        Mood("Panicked", "#212121", "Negative", "Inward", "High"),      // Almost black
-        Mood("Hopeless", "#757575", "Negative", "Inward", "Low"),       // Medium gray
-        Mood("Angry", "#FF0000", "Negative", "Outward", "High"),        // Pure red
-        Mood("Detached", "#9E9E9E", "Negative", "Outward", "Low"),      // Light gray
+        // Bottom row (V=-1)
+        Mood("Angry", "#E12727", valence=-1, arousal=1, dominance=1),      // Vivid red
+        Mood("Fearful", "#111111", valence=-1, arousal=1, dominance=-1),   // Near-black
+        Mood("Anxious", "#7F7F7F", valence=-1, arousal=0, dominance=0),    // Medium gray
+        Mood("Sad", "#2C3652", valence=-1, arousal=-1, dominance=0),       // Bleak blue-gray
 
-        // Other
-        Mood("N/A", "#F5F5F5", "Other", "", "", "Other"),       // Off-white
-        Mood("Asleep", "#464268", "Other", "", "", "Other")     // Dark purple-gray
+        // Special mood for timeout/sleep
+        Mood("Asleep", "#464268", valence=0, arousal=-1, dominance=0),     // Original dark purple-gray
+
+        // N/A mood for custom entry (future feature)
+        Mood("N/A", "#F5F5F5", valence=0, arousal=0, dominance=0)          // Original off-white
     )
 }

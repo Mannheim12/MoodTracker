@@ -263,19 +263,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val moods = allConfigMoods
             val moodDebugInfoList = moods.map { mood ->
                 val properties = buildString {
-                    if (mood.dimension1.isNotEmpty()) append(mood.dimension1)
-                    if (mood.dimension2.isNotEmpty()) {
-                        if (isNotEmpty()) append(", ")
-                        append(mood.dimension2)
-                    }
-                    if (mood.dimension3.isNotEmpty()) {
-                        if (isNotEmpty()) append(", ")
-                        append(mood.dimension3)
-                    }
-                    if (mood.category.isNotEmpty()) {
-                        if (isNotEmpty()) append(", ")
-                        append("Category: ${mood.category}")
-                    }
+                    append("V=${mood.valence}, ")
+                    append("A=${mood.arousal}, ")
+                    append("D=${mood.dominance}")
                 }
                 MoodDebugInfo(
                     name = mood.name,

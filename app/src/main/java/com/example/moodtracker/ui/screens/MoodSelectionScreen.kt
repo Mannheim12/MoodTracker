@@ -2,14 +2,15 @@ package com.example.moodtracker.ui.screens
 
 import android.app.Application
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -21,43 +22,38 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.moodtracker.model.Mood //
-import com.example.moodtracker.viewmodel.MoodSelectionViewModel //
+import com.example.moodtracker.model.Constants
+import com.example.moodtracker.model.Mood
+import com.example.moodtracker.viewmodel.MoodSelectionViewModel
 import kotlinx.coroutines.delay
 
 class MoodSelectionViewModelFactory(
     private val application: Application,
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        if (modelClass.isAssignableFrom(MoodSelectionViewModel::class.java)) { //
+        if (modelClass.isAssignableFrom(MoodSelectionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return MoodSelectionViewModel(application) as T //
+            return MoodSelectionViewModel(application) as T
         }
-        throw IllegalArgumentException("Unknown ViewModel class") //
+        throw IllegalArgumentException("Unknown ViewModel class")
     }
 }
 
 @Composable
-fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit) {
+fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit, modifier: Modifier = Modifier) {
     Button(
-        onClick = { onMoodClick(mood.name) }, //
-        modifier = Modifier
-            .padding(2.dp)
-            .fillMaxWidth() // Fill the width of the grid cell
-            // Use aspectRatio to make the button square (or other desired ratio).
-            // This will make its height proportional to its width (which is screenWidth / numColumns).
-            // This is a common way to get responsive, consistently sized grid items.
-            .aspectRatio(1f), // Makes the button a square. Adjust ratio (e.g., 1.5f for taller) if needed.
+        onClick = { onMoodClick(mood.name) },
+        modifier = modifier.padding(2.dp),
         shape = MaterialTheme.shapes.medium,
         colors = ButtonDefaults.buttonColors(
-            containerColor = Color(mood.getColor()), //
+            containerColor = Color(mood.getColor()),
         ),
-        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp) // Keep some padding for text
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
     ) {
         Text(
-            text = mood.name, //
-            style = TextStyle( // Using a custom TextStyle for precise control
-                color = Color(mood.getTextColor()), //
+            text = mood.name,
+            style = TextStyle(
+                color = Color(mood.getTextColor()),
                 fontSize = 16.sp,
                 textAlign = TextAlign.Center,
                 fontWeight = FontWeight.Medium
@@ -69,118 +65,233 @@ fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit) {
     }
 }
 
+@Composable
+fun DiagonalSplitMoodButton(
+    mood1: Mood, // Upper triangle (Angry)
+    mood2: Mood, // Lower triangle (Fearful)
+    onMoodClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier.padding(2.dp)) {
+        // Upper triangle (Angry)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(UpperTriangleShape)
+                .background(Color(mood1.getColor()))
+                .clickable { onMoodClick(mood1.name) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = mood1.name,
+                style = TextStyle(
+                    color = Color(mood1.getTextColor()),
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.offset(y = (-10).dp) // Adjust text position
+            )
+        }
+
+        // Lower triangle (Fearful)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .clip(LowerTriangleShape)
+                .background(Color(mood2.getColor()))
+                .clickable { onMoodClick(mood2.name) },
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = mood2.name,
+                style = TextStyle(
+                    color = Color(mood2.getTextColor()),
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                    fontWeight = FontWeight.Medium
+                ),
+                modifier = Modifier.offset(y = 10.dp) // Adjust text position
+            )
+        }
+    }
+}
+
+// Shape for upper triangle
+private val UpperTriangleShape = GenericShape { size, _ ->
+    moveTo(0f, 0f)
+    lineTo(size.width, 0f)
+    lineTo(0f, size.height)
+    close()
+}
+
+// Shape for lower triangle
+private val LowerTriangleShape = GenericShape { size, _ ->
+    moveTo(size.width, 0f)
+    lineTo(size.width, size.height)
+    lineTo(0f, size.height)
+    close()
+}
+
+@Composable
+fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        // Create 3x3 grid
+        for (row in 0..2) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                for (col in 0..2) {
+                    val cellModifier = Modifier
+                        .weight(1f)
+                        .aspectRatio(1f)
+
+                    if (row == 2 && col == 0) {
+                        // Diagonal split cell at bottom left
+                        DiagonalSplitMoodButton(
+                            mood1 = moods[6], // Angry
+                            mood2 = moods[7], // Fearful
+                            onMoodClick = onMoodClick,
+                            modifier = cellModifier
+                        )
+                    } else {
+                        // Regular cells - calculate index directly
+                        val moodIndex = if (row < 2) {
+                            row * 3 + col  // Rows 0,1: simple calculation
+                        } else {
+                            // Row 2: only col 1,2 possible here
+                            col + 7  // col 1 -> 8, col 2 -> 9
+                        }
+                        MoodButton(
+                            mood = moods[moodIndex],
+                            onMoodClick = onMoodClick,
+                            modifier = cellModifier
+                        )
+                    }
+                }
+            }
+        }
+
+        // N/A button below grid
+        Button(
+            onClick = { onMoodClick("N/A") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 2.dp, vertical = 8.dp),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(Constants.DEFAULT_MOODS.find { it.name == "N/A" }?.getColor() ?: android.graphics.Color.parseColor("#F5F5F5"))
+            )
+        ) {
+            Text(
+                text = "N/A",
+                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoodSelectionScreen(
     onCloseScreen: () -> Unit
 ) {
     val context = LocalContext.current
-    val application = context.applicationContext as Application //
+    val application = context.applicationContext as Application
     val viewModel: MoodSelectionViewModel = viewModel(
-        factory = MoodSelectionViewModelFactory(application) //
+        factory = MoodSelectionViewModelFactory(application)
     )
-    val uiState by viewModel.uiState.collectAsState() //
+    val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(uiState.moodRecorded) { //
-        if (uiState.moodRecorded) { //
-            if (uiState.promptText.contains("Timeout")) { //
-                delay(2000) //
+    LaunchedEffect(uiState.moodRecorded) {
+        if (uiState.moodRecorded) {
+            if (uiState.promptText.contains("Timeout")) {
+                delay(2000)
             }
-            onCloseScreen() //
+            onCloseScreen()
         }
     }
 
-    BackHandler { //
-        viewModel.handleBackPress { //
+    BackHandler {
+        viewModel.handleBackPress {
             // Closure handled by LaunchedEffect
         }
     }
 
     Scaffold(
         topBar = {
-            TopAppBar( //
-                title = { Text("Select Your Mood", color = MaterialTheme.colorScheme.onPrimary) }, //
-                colors = TopAppBarDefaults.topAppBarColors( //
-                    containerColor = MaterialTheme.colorScheme.primary //
+            TopAppBar(
+                title = { Text("Select Your Mood", color = MaterialTheme.colorScheme.onPrimary) },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary
                 )
             )
         }
     ) { paddingValues ->
         Column(
             modifier = Modifier
-                .fillMaxSize() //
-                .padding(paddingValues) // Apply padding from Scaffold
-                .padding(horizontal = 16.dp, vertical = 8.dp), // Standard screen padding
-            horizontalAlignment = Alignment.CenterHorizontally //
+                .fillMaxSize()
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top section: Prompt and time text
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally, //
-                modifier = Modifier.padding(top = 16.dp, bottom = 20.dp) //
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(top = 16.dp, bottom = 20.dp)
             ) {
                 Text(
-                    text = uiState.promptText, //
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold), //
-                    textAlign = TextAlign.Center, //
-                    modifier = Modifier.padding(bottom = 8.dp) //
+                    text = uiState.promptText,
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
                 Text(
-                    text = uiState.timeText, //
-                    style = MaterialTheme.typography.bodyLarge, //
-                    textAlign = TextAlign.Center, //
-                    color = MaterialTheme.colorScheme.onSurfaceVariant //
+                    text = uiState.timeText,
+                    style = MaterialTheme.typography.bodyLarge,
+                    textAlign = TextAlign.Center,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            // Main content area:
+            // Main content area
             Box(
                 modifier = Modifier
-                    .weight(1f) // Box takes available vertical weighted space
-                    .fillMaxWidth(), //
-                // Removed contentAlignment to use default (TopStart).
-                // If LazyVerticalGrid's content is shorter than the Box, it will align TopStart.
-                // The goal is for the grid items (buttons) to define the height.
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
             ) {
-                if (uiState.isLoading) { //
-                    CircularProgressIndicator(modifier = Modifier.size(48.dp).align(Alignment.Center)) //
-                } else if (uiState.moods.isEmpty()) { //
+                if (uiState.isLoading) {
+                    CircularProgressIndicator(modifier = Modifier.size(48.dp))
+                } else if (uiState.moods.isEmpty()) {
                     Text(
-                        text = "No moods configured.\nPlease add moods in settings.", //
-                        style = MaterialTheme.typography.bodyLarge, //
-                        textAlign = TextAlign.Center, //
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, //
-                        modifier = Modifier.padding(16.dp).align(Alignment.Center) //
+                        text = "No moods configured.\nPlease add moods in settings.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        textAlign = TextAlign.Center,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(16.dp)
                     )
                 } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(3), //
-                        modifier = Modifier.fillMaxSize(), // Grid fills the Box
-                        contentPadding = PaddingValues(2.dp),
-                        verticalArrangement = Arrangement.spacedBy(2.dp), // This spacing applies between rows of items
-                        horizontalArrangement = Arrangement.spacedBy(2.dp) // This spacing applies between columns of items
-                    ) {
-                        items(uiState.moods, key = { mood -> mood.name }) { mood -> //
-                            MoodButton(
-                                mood = mood,
-                                onMoodClick = { selectedMoodName ->
-                                    viewModel.onMoodSelected(selectedMoodName) { //
-                                        // ...
-                                    }
-                                }
-                            )
+                    // Use custom grid instead of LazyVerticalGrid
+                    MoodSelectionGrid(
+                        moods = uiState.moods,
+                        onMoodClick = { selectedMoodName ->
+                            viewModel.onMoodSelected(selectedMoodName) {
+                                // Callback handled by LaunchedEffect
+                            }
                         }
-                    }
+                    )
                 }
             }
 
             // Timeout indicator at bottom
-            if (!uiState.isLoading && !uiState.moodRecorded) { //
+            if (!uiState.isLoading && !uiState.moodRecorded) {
                 Text(
-                    text = "Auto-closes in 60 seconds if no mood selected", //
-                    style = MaterialTheme.typography.bodySmall, //
-                    color = MaterialTheme.colorScheme.onSurfaceVariant, //
-                    textAlign = TextAlign.Center, //
-                    modifier = Modifier.padding(vertical = 16.dp) //
+                    text = "Auto-closes in 60 seconds if no mood selected",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(vertical = 16.dp)
                 )
             }
         }
