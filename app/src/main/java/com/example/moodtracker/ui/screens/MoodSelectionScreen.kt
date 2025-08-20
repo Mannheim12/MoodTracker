@@ -2,15 +2,11 @@ package com.example.moodtracker.ui.screens
 
 import android.app.Application
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.GenericShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -66,74 +62,6 @@ fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit, modifier: Modifier = M
 }
 
 @Composable
-fun DiagonalSplitMoodButton(
-    mood1: Mood, // Upper triangle (Angry)
-    mood2: Mood, // Lower triangle (Fearful)
-    onMoodClick: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(modifier = modifier.padding(2.dp)) {
-        // Upper triangle (Angry)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(UpperTriangleShape)
-                .background(Color(mood1.getColor()))
-                .clickable { onMoodClick(mood1.name) },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = mood1.name,
-                style = TextStyle(
-                    color = Color(mood1.getTextColor()),
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Medium
-                ),
-                modifier = Modifier.offset(y = (-10).dp) // Adjust text position
-            )
-        }
-
-        // Lower triangle (Fearful)
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(LowerTriangleShape)
-                .background(Color(mood2.getColor()))
-                .clickable { onMoodClick(mood2.name) },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = mood2.name,
-                style = TextStyle(
-                    color = Color(mood2.getTextColor()),
-                    fontSize = 16.sp,
-                    textAlign = TextAlign.Center,
-                    fontWeight = FontWeight.Medium
-                ),
-                modifier = Modifier.offset(y = 10.dp) // Adjust text position
-            )
-        }
-    }
-}
-
-// Shape for upper triangle
-private val UpperTriangleShape = GenericShape { size, _ ->
-    moveTo(0f, 0f)
-    lineTo(size.width, 0f)
-    lineTo(0f, size.height)
-    close()
-}
-
-// Shape for lower triangle
-private val LowerTriangleShape = GenericShape { size, _ ->
-    moveTo(size.width, 0f)
-    lineTo(size.width, size.height)
-    lineTo(0f, size.height)
-    close()
-}
-
-@Composable
 fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         // Create 3x3 grid
@@ -148,13 +76,30 @@ fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
                         .aspectRatio(1f)
 
                     if (row == 2 && col == 0) {
-                        // Diagonal split cell at bottom left
-                        DiagonalSplitMoodButton(
-                            mood1 = moods[6], // Angry
-                            mood2 = moods[7], // Fearful
-                            onMoodClick = onMoodClick,
-                            modifier = cellModifier
-                        )
+                        // Horizontal split cell at bottom left
+                        Column(
+                            modifier = cellModifier.padding(2.dp),
+                            verticalArrangement = Arrangement.SpaceEvenly
+                        ) {
+                            // Angry button (top)
+                            MoodButton(
+                                mood = moods[6],
+                                onMoodClick = onMoodClick,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(0.dp) // Remove default padding since Column already has it
+                            )
+                            // Fearful button (bottom)
+                            MoodButton(
+                                mood = moods[7],
+                                onMoodClick = onMoodClick,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(0.dp) // Remove default padding since Column already has it
+                            )
+                        }
                     } else {
                         // Regular cells - calculate index directly
                         val moodIndex = if (row < 2) {
@@ -272,7 +217,7 @@ fun MoodSelectionScreen(
                         modifier = Modifier.padding(16.dp)
                     )
                 } else {
-                    // Use custom grid instead of LazyVerticalGrid
+                    // Use custom grid
                     MoodSelectionGrid(
                         moods = uiState.moods,
                         onMoodClick = { selectedMoodName ->
