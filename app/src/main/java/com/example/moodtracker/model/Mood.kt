@@ -59,6 +59,7 @@ object Constants {
 
     // Default moods if config file is missing or corrupt
     val DEFAULT_MOODS = listOf(
+        // Valence/Arousal/Dominance information: -1 = low, 0 = medium, 1 = high, 2 = N/A
         // Top row (V=+1)
         Mood("Joyful", "#FFD600", valence=1, arousal=1, dominance=0),      // Bright yellow
         Mood("Happy", "#FF9A1F", valence=1, arousal=0, dominance=0),       // Tangerine orange
@@ -73,12 +74,12 @@ object Constants {
         Mood("Angry", "#E12727", valence=-1, arousal=1, dominance=1),      // Vivid red
         Mood("Fearful", "#111111", valence=-1, arousal=1, dominance=-1),   // Near-black
         Mood("Anxious", "#7F7F7F", valence=-1, arousal=0, dominance=0),    // Medium gray
-        Mood("Sad", "#2C3652", valence=-1, arousal=-1, dominance=0),       // Bleak blue-gray
+        Mood("Sad", "#2C3652", valence=-1, arousal=-1, dominance=0),       // Dark blue-gray
 
         // Special mood for timeout/sleep
-        Mood("Asleep", "#464268", valence=0, arousal=-1, dominance=0),     // Original dark purple-gray
+        Mood("Asleep", "#464268", valence=2, arousal=2, dominance=2),     // Dark blue-gray
 
         // N/A mood for custom entry (future feature)
-        Mood("N/A", "#F5F5F5", valence=0, arousal=0, dominance=0)          // Original off-white
+        Mood("N/A", "#FFFFFF", valence=2, arousal=2, dominance=2)          // White
     )
 }
