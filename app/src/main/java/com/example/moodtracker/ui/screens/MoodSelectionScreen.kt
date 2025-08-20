@@ -44,13 +44,17 @@ fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit, modifier: Modifier = M
         colors = ButtonDefaults.buttonColors(
             containerColor = Color(mood.getColor()),
         ),
-        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp)
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 8.dp),
+        elevation = ButtonDefaults.buttonElevation(
+            defaultElevation = 4.dp,
+            pressedElevation = 8.dp
+        )
     ) {
         Text(
             text = mood.name,
             style = TextStyle(
                 color = Color(mood.getTextColor()),
-                fontSize = 16.sp,
+                fontSize = 20.sp,
                 textAlign = TextAlign.Center,
                 fontWeight = FontWeight.Medium
             ),
@@ -119,18 +123,15 @@ fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
         }
 
         // N/A button below grid
-        Button(
-            onClick = { onMoodClick("N/A") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 2.dp, vertical = 8.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(Constants.DEFAULT_MOODS.find { it.name == "N/A" }?.getColor() ?: android.graphics.Color.parseColor("#F5F5F5"))
-            )
-        ) {
-            Text(
-                text = "N/A",
-                style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium)
+        val naMood = Constants.DEFAULT_MOODS.find { it.name == "N/A" }
+        if (naMood != null) {
+            MoodButton(
+                mood = naMood,
+                onMoodClick = onMoodClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)  // Half height
+                    .padding(horizontal = 0.dp, vertical = 6.dp)
             )
         }
     }
