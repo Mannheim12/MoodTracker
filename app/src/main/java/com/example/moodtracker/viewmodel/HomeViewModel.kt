@@ -43,7 +43,8 @@ data class DisplayMoodEntry(
     val timeRange: String,
     val moodName: String,
     val moodColor: Int, // Parsed color Int
-    val startHour: Int // 0-23, for sorting or reference
+    val startHour: Int, // 0-23, for backward compatibility
+    val startTimestamp: Long // For proper chronological sorting
 )
 
 data class TodaysMoodsUiState(
@@ -352,15 +353,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val mood = allConfigMoods.find { it.name == currentGroupMoodName }
                 val moodColor = mood?.getColor() ?: Color.Gray.toArgb() // Default color
                 val startTimeCal = Calendar.getInstance().apply { timeInMillis = currentGroupStartTime }
-                val endTimeCal = Calendar.getInstance().apply { timeInMillis = prevEntry.timestamp } // End time is the prev entry's hour
+                val endTimeCal = Calendar.getInstance().apply { timeInMillis = prevEntry.timestamp }
+
+                // Determine if this is a single hour or range
+                val timeRange = if (currentGroupStartHourId == prevEntry.id) {
+                    // Single hour entry
+                    formatTimeForDisplay(startTimeCal)
+                } else {
+                    // Range of hours
+                    "${formatTimeForDisplay(startTimeCal)} - ${formatTimeForDisplay(endTimeCal, true)}"
+                }
 
                 groupedDisplayEntries.add(
                     DisplayMoodEntry(
                         id = currentGroupStartHourId + "-" + prevEntry.id, // Composite ID
-                        timeRange = "${formatTimeForDisplay(startTimeCal)} - ${formatTimeForDisplay(endTimeCal, true)}",
+                        timeRange = timeRange,
                         moodName = currentGroupMoodName,
                         moodColor = moodColor,
-                        startHour = startTimeCal.get(Calendar.HOUR_OF_DAY)
+                        startHour = startTimeCal.get(Calendar.HOUR_OF_DAY),
+                        startTimestamp = currentGroupStartTime
                     )
                 )
                 // Start new group
@@ -375,22 +386,32 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val mood = allConfigMoods.find { it.name == currentGroupMoodName }
         val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
         val startTimeCalLast = Calendar.getInstance().apply { timeInMillis = currentGroupStartTime }
-        // For the very last entry, its end time is effectively the end of its hour.
-        // Or if it's the current hour, it might be "Now" or "?"
         val endTimeCalLast = Calendar.getInstance().apply { timeInMillis = lastEntry.timestamp }
 
+        // Determine if this is a single hour or range
+        val timeRange = if (currentGroupStartHourId == lastEntry.id) {
+            // Single hour entry
+            formatTimeForDisplay(startTimeCalLast)
+        } else {
+            // Range of hours
+            "${formatTimeForDisplay(startTimeCalLast)} - ${formatTimeForDisplay(endTimeCalLast, true)}"
+        }
 
         groupedDisplayEntries.add(
             DisplayMoodEntry(
                 id = currentGroupStartHourId + "-" + lastEntry.id,
-                timeRange = "${formatTimeForDisplay(startTimeCalLast)} - ${formatTimeForDisplay(endTimeCalLast, true)}", // Or "Now"
+                timeRange = timeRange,
                 moodName = currentGroupMoodName,
                 moodColor = moodColor,
-                startHour = startTimeCalLast.get(Calendar.HOUR_OF_DAY)
+                startHour = startTimeCalLast.get(Calendar.HOUR_OF_DAY),
+                startTimestamp = currentGroupStartTime
             )
         )
-        return groupedDisplayEntries.sortedByDescending { it.startHour } // Show newest groups first
+
+        // Sort by actual timestamp (most recent first)
+        return groupedDisplayEntries.sortedByDescending { it.startTimestamp }
     }
+
     private fun isSameHour(cal1: Calendar, cal2: Calendar): Boolean {
         return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
                 cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR) &&
@@ -399,13 +420,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
 
     private fun formatTimeForDisplay(calendar: Calendar, isEndTime: Boolean = false): String {
-        // If it's an end time, we effectively want to show the end of that hour.
-        // So, "9 AM" start time means the 9:00-9:59 block. If this is an end time,
-        // it means the range ended *at the start* of the next hour, or *during* this hour.
-        // The mockup has "9 AM - 12 PM", where 12 PM is likely the start of the next mood.
-        // So, if a mood lasts for 9, 10, 11, the range is 9 AM - 12 PM (exclusive of 12 PM for this mood).
-        // Let's adjust the display format to be simpler: just the start hour.
-        // The grouping logic will handle the range text.
         val tempCal = Calendar.getInstance()
         tempCal.timeInMillis = calendar.timeInMillis
         return displayHourFormat.format(tempCal.time)

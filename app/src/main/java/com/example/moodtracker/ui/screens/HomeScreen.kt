@@ -102,9 +102,6 @@ fun HomeScreen(
                 TrackingStatusCard(trackingStatusState)
             }
             item {
-                TodaysMoodsCard(todaysMoodsState)
-            }
-            item {
                 QuickActionsCard(
                     isActive = trackingStatusState.isActive,
                     onCheckNow = { homeViewModel.onCheckNowClicked() },
@@ -113,6 +110,9 @@ fun HomeScreen(
             }
             item {
                 MissedEntriesCard()
+            }
+            item {
+                TodaysMoodsCard(todaysMoodsState)
             }
             // Conditionally display Debug Info Card
             if (debugInfoState.isDebugModeEnabled) {
@@ -198,10 +198,10 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
         moods.forEachIndexed { index, mood ->
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 8.dp) // Spacing between entries
+                modifier = Modifier.padding(vertical = 2.dp) // Reduced from 8.dp for compactness
             ) {
                 // Timeline line and dot
-                Box(modifier = Modifier.width(40.dp).height(50.dp), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.width(40.dp).height(30.dp), contentAlignment = Alignment.Center) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         // Vertical line
                         if (moods.size > 1) { // Only draw line if more than one point
@@ -232,10 +232,12 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
 
                 Spacer(Modifier.width(textStartPadding))
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(mood.timeRange, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(mood.moodName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
-                }
+                Text(
+                    text = "${mood.timeRange}: ${mood.moodName}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
