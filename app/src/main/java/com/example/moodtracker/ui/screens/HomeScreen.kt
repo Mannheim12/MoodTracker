@@ -192,16 +192,15 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
 
     val pointRadius = 6.dp
     val lineWidth = 2.dp
-    val textStartPadding = 16.dp
 
     Column {
         moods.forEachIndexed { index, mood ->
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = 2.dp) // Reduced from 8.dp for compactness
+                verticalAlignment = Alignment.CenterVertically
+                // No padding here to eliminate gaps between timeline segments
             ) {
-                // Timeline line and dot
-                Box(modifier = Modifier.width(40.dp).height(30.dp), contentAlignment = Alignment.Center) {
+                // Timeline line and dot - fixed size that matches text height
+                Box(modifier = Modifier.width(40.dp).height(24.dp), contentAlignment = Alignment.Center) {
                     Canvas(modifier = Modifier.fillMaxSize()) {
                         // Vertical line
                         if (moods.size > 1) { // Only draw line if more than one point
@@ -220,7 +219,7 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
                             radius = pointRadius.toPx(),
                             center = center
                         )
-                        // Outline for dot if needed
+                        // Outline for dot
                         drawCircle(
                             color = Color.DarkGray,
                             radius = pointRadius.toPx(),
@@ -230,10 +229,21 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
                     }
                 }
 
-                Spacer(Modifier.width(textStartPadding))
+                Spacer(Modifier.width(8.dp))
+
+                // Fixed-width box for time to ensure alignment
+                Box(
+                    modifier = Modifier.width(90.dp),
+                    contentAlignment = Alignment.CenterEnd
+                ) {
+                    Text(
+                        text = mood.timeRange,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
 
                 Text(
-                    text = "${mood.timeRange}: ${mood.moodName}",
+                    text = ": ${mood.moodName}",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     modifier = Modifier.weight(1f)
