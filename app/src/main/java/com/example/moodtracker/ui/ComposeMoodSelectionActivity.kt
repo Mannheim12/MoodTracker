@@ -6,12 +6,14 @@ import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.moodtracker.theme.MoodTrackerTheme
 import com.example.moodtracker.ui.screens.MoodSelectionScreen
+import com.example.moodtracker.util.ConfigManager
 
 class ComposeMoodSelectionActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,7 +32,16 @@ class ComposeMoodSelectionActivity : ComponentActivity() {
         }
 
         setContent {
-            MoodTrackerTheme {
+            // Read config to get theme preference
+            val config = ConfigManager(this).loadConfig()
+            val darkTheme = when (config.appTheme) {
+                ConfigManager.AppTheme.LIGHT -> false
+                ConfigManager.AppTheme.DARK -> true
+                else -> isSystemInDarkTheme()  // System default
+            }
+
+            // Apply theme
+            MoodTrackerTheme(darkTheme = darkTheme) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
