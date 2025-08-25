@@ -64,25 +64,32 @@ class DataManager(private val context: Context) {
     }
 
     /**
-     * Finds which hourly entries are missing from the database within the configured retention period.
+     * Finds which hourly entries are missing from the database, starting from the first recorded entry.
      * @return A list of hour ID strings (YYYYMMDDHH) for which no entry exists.
      */
     suspend fun getMissedEntryHourIds(): List<String> = withContext(Dispatchers.IO) {
-        // If tracking is off, there can be no missed entries.
         if (!MoodCheckWorker.isTrackingActive(context)) {
             return@withContext emptyList()
         }
 
+        // 1. Find the first-ever entry to establish a starting point.
+        val oldestEntry = database.moodEntryDao().getOldestEntry()
+            ?: return@withContext emptyList() // No entries means no missed entries.
+
+        // 2. Determine the time window to check.
         val config = configManager.loadConfig()
         val retentionHours = config.missedEntriesRetentionHours
-
         val calendar = Calendar.getInstance()
-        val currentHour = calendar.clone() as Calendar
-
-        // Generate a list of all hour IDs that should exist in the retention period.
-        val expectedHourIds = mutableListOf<String>()
+        val endTime = calendar.timeInMillis
         calendar.add(Calendar.HOUR_OF_DAY, -retentionHours)
-        while (calendar.before(currentHour)) {
+
+        // The start time is the more recent of the two: either the oldest entry or the retention window.
+        val startTime = maxOf(calendar.timeInMillis, oldestEntry.timestamp)
+
+        // 3. Generate all hour IDs that should exist within this window.
+        val expectedHourIds = mutableListOf<String>()
+        calendar.timeInMillis = startTime
+        while (calendar.timeInMillis < endTime) {
             expectedHourIds.add(generateHourId(calendar.timeInMillis))
             calendar.add(Calendar.HOUR_OF_DAY, 1)
         }
@@ -91,15 +98,15 @@ class DataManager(private val context: Context) {
             return@withContext emptyList()
         }
 
-        // Get the hour ID for the currently active notification, if one exists.
+        // 4. Get the currently pending hour ID from SharedPreferences.
         val prefs = context.getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
         val pendingHourId = prefs.getString(MoodCheckWorker.PREF_HOURLY_ID, null)
 
-        // Fetch all the hour IDs that are actually in the database.
+        // 5. Get all existing hour IDs from the database within the calculated range.
         val existingEntries = database.moodEntryDao().getEntriesByHourIds(expectedHourIds)
         val existingHourIds = existingEntries.map { it.id }.toSet()
 
-        // A missed entry is one that was expected, doesn't exist, and is not currently pending.
+        // 6. A missed entry is one that was expected, doesn't exist, and is not currently pending.
         return@withContext expectedHourIds.filter { it !in existingHourIds && it != pendingHourId }
     }
 

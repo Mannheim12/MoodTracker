@@ -19,6 +19,9 @@ abstract class AppDatabase : RoomDatabase() {
         @Query("SELECT * FROM mood_entries ORDER BY id DESC")
         fun getAllEntries(): List<MoodEntry>
 
+        @Query("SELECT * FROM mood_entries ORDER BY timestamp ASC LIMIT 1")
+        fun getOldestEntry(): MoodEntry?
+
         @Query("SELECT * FROM mood_entries WHERE id = :hourId")
         fun getEntryByHourId(hourId: String): MoodEntry?
 
