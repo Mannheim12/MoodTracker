@@ -13,10 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -27,12 +29,14 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -44,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.ui.Screen
 import com.example.moodtracker.viewmodel.DebugInfoUiState
 import com.example.moodtracker.viewmodel.DisplayMoodEntry
@@ -51,6 +56,9 @@ import com.example.moodtracker.viewmodel.HomeViewModel
 import com.example.moodtracker.viewmodel.TrackingStatusUiState
 import com.example.moodtracker.viewmodel.TodaysMoodsUiState
 import com.example.moodtracker.viewmodel.MoodDebugInfo
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,6 +73,14 @@ fun HomeScreen(
     // Reload data when the screen becomes visible
     LaunchedEffect(Unit) {
         homeViewModel.loadData()
+    }
+
+    // Show the database view dialog when the state is updated
+    debugInfoState.databaseEntriesForDialog?.let { entries ->
+        DatabaseViewDialog(
+            entries = entries,
+            onDismiss = { homeViewModel.onDismissDatabaseDialog() }
+        )
     }
 
     Scaffold(
@@ -117,7 +133,11 @@ fun HomeScreen(
             // Conditionally display Debug Info Card
             if (debugInfoState.isDebugModeEnabled) {
                 item {
-                    DebugInfoDisplayCard(debugInfoState)
+                    DebugInfoDisplayCard(
+                        state = debugInfoState,
+                        onViewDatabase = { homeViewModel.onViewDatabaseClicked() },
+                        onPopulateDatabase = { homeViewModel.onPopulateDatabaseClicked() }
+                    )
                 }
             }
         }
@@ -294,7 +314,11 @@ fun MissedEntriesCard() {
 }
 
 @Composable
-fun DebugInfoDisplayCard(state: DebugInfoUiState) {
+fun DebugInfoDisplayCard(
+    state: DebugInfoUiState,
+    onViewDatabase: () -> Unit,
+    onPopulateDatabase: () -> Unit
+) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -338,6 +362,23 @@ fun DebugInfoDisplayCard(state: DebugInfoUiState) {
             DebugSection(title = "DATABASE STATUS") {
                 DebugRow("Total Entries", state.databaseEntryCount.toString())
                 DebugWideRow("Latest Entry", state.latestEntry)
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            // New Database Actions Section
+            DebugSection(title = "DATABASE ACTIONS") {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    Button(onClick = onViewDatabase) {
+                        Text("View Database")
+                    }
+                    Button(onClick = onPopulateDatabase) {
+                        Text("Populate (If Empty)")
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -460,4 +501,31 @@ fun DebugMoodRow(mood: MoodDebugInfo) {
             modifier = Modifier.padding(start = 8.dp)
         )
     }
+}
+
+@Composable
+fun DatabaseViewDialog(entries: List<MoodEntry>, onDismiss: () -> Unit) {
+    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Database Entries (${entries.size})") },
+        text = {
+            LazyColumn {
+                items(entries) { entry ->
+                    val formattedDate = dateFormat.format(Date(entry.timestamp))
+                    Text(
+                        text = "${entry.id} | ${entry.moodName} | $formattedDate",
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Close")
+            }
+        }
+    )
 }

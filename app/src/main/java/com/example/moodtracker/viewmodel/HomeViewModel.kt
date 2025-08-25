@@ -77,7 +77,9 @@ data class DebugInfoUiState(
     val autoExportFrequency: String = "",
     val autoSleepStartHour: String = "",
     val autoSleepEndHour: String = "",
-    val moods: List<MoodDebugInfo> = emptyList()
+    val moods: List<MoodDebugInfo> = emptyList(),
+    // Debugging
+    val databaseEntriesForDialog: List<MoodEntry>? = null
 )
 
 data class MoodDebugInfo(
@@ -456,5 +458,23 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         // Refresh status quickly
         viewModelScope.launch { fetchTrackingStatus() }
+    }
+
+    fun onViewDatabaseClicked() {
+        viewModelScope.launch {
+            val entries = dataManager.getAllEntries()
+            _debugInfoUiState.update { it.copy(databaseEntriesForDialog = entries) }
+        }
+    }
+
+    fun onDismissDatabaseDialog() {
+        _debugInfoUiState.update { it.copy(databaseEntriesForDialog = null) }
+    }
+
+    fun onPopulateDatabaseClicked() {
+        viewModelScope.launch {
+            dataManager.populateWithSampleData()
+            loadData() // Reload all data to reflect changes
+        }
     }
 }

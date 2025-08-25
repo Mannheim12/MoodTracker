@@ -14,6 +14,7 @@ import kotlinx.coroutines.withContext
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVPrinter
 import java.util.Calendar
+import kotlin.random.Random
 
 /**
  * Handles reading and writing mood data using Room database and CSV export
@@ -222,5 +223,29 @@ class DataManager(private val context: Context) {
         // you could filter in memory, but a direct DB query is more efficient for larger datasets.
         // Let's assume we add a new DAO method for this.
         return@withContext database.moodEntryDao().getEntriesSince(sinceTimestamp)
+    }
+
+    /**
+     * For debugging: Fills the database with sample data over the last 48 hours.
+     * Does nothing if the database already contains entries.
+     */
+    suspend fun populateWithSampleData() = withContext(Dispatchers.IO) {
+        if (getEntryCount() > 0) return@withContext // Only populate if empty
+
+        val sampleMoods = listOf("Happy", "Content", "Neutral", "Anxious", "Sad", "Driven", "Bored")
+        val calendar = Calendar.getInstance()
+        calendar.add(Calendar.HOUR_OF_DAY, -48) // Start 48 hours ago
+
+        val endTime = System.currentTimeMillis()
+
+        while (calendar.timeInMillis < endTime) {
+            // Randomly decide whether to skip an hour to create a "missed" entry
+            if (Random.nextInt(0, 4) != 0) { // 75% chance to add an entry
+                val hourId = generateHourId(calendar.timeInMillis)
+                val mood = sampleMoods.random()
+                addMoodEntry(mood, hourId, calendar.timeInMillis)
+            }
+            calendar.add(Calendar.HOUR_OF_DAY, 1)
+        }
     }
 }
