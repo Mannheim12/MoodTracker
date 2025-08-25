@@ -51,7 +51,6 @@ import androidx.navigation.NavController
 import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.ui.Screen
 import com.example.moodtracker.viewmodel.DebugInfoUiState
-import com.example.moodtracker.viewmodel.DisplayMissedEntry
 import com.example.moodtracker.viewmodel.DisplayMoodEntry
 import com.example.moodtracker.viewmodel.HomeViewModel
 import com.example.moodtracker.viewmodel.MissedEntriesUiState
@@ -59,7 +58,6 @@ import com.example.moodtracker.viewmodel.TrackingStatusUiState
 import com.example.moodtracker.viewmodel.TodaysMoodsUiState
 import com.example.moodtracker.viewmodel.MoodDebugInfo
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -260,7 +258,7 @@ fun MoodTimeline(moods: List<DisplayMoodEntry>) {
 
                 // Fixed-width box for time to ensure alignment
                 Box(
-                    modifier = Modifier.width(90.dp),
+                    modifier = Modifier.width(110.dp),
                     contentAlignment = Alignment.CenterEnd
                 ) {
                     Text(
