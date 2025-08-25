@@ -27,7 +27,7 @@ class ConfigManager(private val context: Context) {
 
         // Data Management
         val autoExportFrequency: String = AutoExportFrequency.OFF, // Default to off
-        val missedEntriesRetentionHours: Int = 48, // How long to show missed entries //TODO: add missed entries section in main menu and implement this config in settings
+        val missedEntriesRetentionHours: Int = 48, // How long to show missed entries //TODO: implement this config in settings
 
         // Appearance
         val timelineHours: Int = 24, // How many hours to show in the timeline //TODO: implement this config in settings
