@@ -25,11 +25,12 @@ import kotlinx.coroutines.delay
 
 class MoodSelectionViewModelFactory(
     private val application: Application,
+    private val hourId: String? // Add hourId to the factory
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(MoodSelectionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return MoodSelectionViewModel(application) as T
+            return MoodSelectionViewModel(application, hourId) as T // Pass hourId to ViewModel
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }
@@ -140,12 +141,14 @@ fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MoodSelectionScreen(
-    onCloseScreen: () -> Unit
+    onCloseScreen: () -> Unit,
+    hourId: String? = null // Accept optional hourId
 ) {
     val context = LocalContext.current
     val application = context.applicationContext as Application
+    // Pass the hourId to the factory
     val viewModel: MoodSelectionViewModel = viewModel(
-        factory = MoodSelectionViewModelFactory(application)
+        factory = MoodSelectionViewModelFactory(application, hourId)
     )
     val uiState by viewModel.uiState.collectAsState()
 

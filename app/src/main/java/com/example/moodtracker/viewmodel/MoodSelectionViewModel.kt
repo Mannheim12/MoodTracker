@@ -33,6 +33,7 @@ data class MoodSelectionUiState(
 
 class MoodSelectionViewModel(
     application: Application,
+    private val targetHourId: String? = null // Accept optional hourId in constructor
 ) : AndroidViewModel(application) {
 
     private val configManager = ConfigManager(application)
@@ -54,8 +55,8 @@ class MoodSelectionViewModel(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                // Fetch hour ID and time text first
-                currentHourId = withContext(Dispatchers.IO) {
+                // Use the provided hour ID if it exists, otherwise use the old logic
+                currentHourId = targetHourId ?: withContext(Dispatchers.IO) {
                     val context = getApplication<Application>().applicationContext
                     val idFromPref = context
                         .getSharedPreferences(MoodCheckWorker.PREF_NAME, Context.MODE_PRIVATE)
@@ -65,14 +66,19 @@ class MoodSelectionViewModel(
 
                 val timeTextResult = withContext(Dispatchers.IO) {
                     val formattedHourText = configManager.formatHourIdForDisplay(currentHourId)
-                    val userTimeFormat = configManager.loadConfig().timeFormat
-                    val currentTimePattern = when (userTimeFormat) {
-                        ConfigManager.TimeFormat.H24 -> "HH:mm"
-                        else -> "h:mm a"
+                    // For past entries, just show the hour. For live, show current time.
+                    if (targetHourId != null) {
+                        "For $formattedHourText"
+                    } else {
+                        val userTimeFormat = configManager.loadConfig().timeFormat
+                        val currentTimePattern = when (userTimeFormat) {
+                            ConfigManager.TimeFormat.H24 -> "HH:mm"
+                            else -> "h:mm a"
+                        }
+                        val sdfCurrent = SimpleDateFormat(currentTimePattern, Locale.getDefault())
+                        val currentTimeString = sdfCurrent.format(Date())
+                        "For $formattedHourText (Current: $currentTimeString)"
                     }
-                    val sdfCurrent = SimpleDateFormat(currentTimePattern, Locale.getDefault())
-                    val currentTimeString = sdfCurrent.format(Date())
-                    "For $formattedHourText (Current: $currentTimeString)"
                 }
 
                 // Load moods from hardcoded list instead of config

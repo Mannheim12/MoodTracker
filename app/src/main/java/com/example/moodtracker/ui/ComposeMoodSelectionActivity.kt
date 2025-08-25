@@ -16,6 +16,11 @@ import com.example.moodtracker.ui.screens.MoodSelectionScreen
 import com.example.moodtracker.util.ConfigManager
 
 class ComposeMoodSelectionActivity : ComponentActivity() {
+
+    companion object {
+        const val EXTRA_HOUR_ID = "com.example.moodtracker.ui.HOUR_ID"
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -30,6 +35,9 @@ class ComposeMoodSelectionActivity : ComponentActivity() {
                         WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
             )
         }
+
+        // Retrieve the optional hourId from the intent extra
+        val hourId: String? = intent.getStringExtra(EXTRA_HOUR_ID)
 
         setContent {
             // Read config to get theme preference
@@ -47,6 +55,7 @@ class ComposeMoodSelectionActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     MoodSelectionScreen(
+                        hourId = hourId, // Pass the hourId to the screen
                         onCloseScreen = {
                             finish()
                         }
