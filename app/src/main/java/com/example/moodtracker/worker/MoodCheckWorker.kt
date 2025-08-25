@@ -221,7 +221,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
             // Handle previous notification if not already handled
             withContext(Dispatchers.IO) {
-                handlePreviousNotification(now)
+                cancelNotification(applicationContext)
             }
 
             // Store the current hour ID for this check
@@ -255,28 +255,6 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         } catch (e: Exception) {
             return Result.retry()
         }
-    }
-
-    /**
-     * Check and handle previous notification if not already handled
-     * Marks previous notification as "Asleep" if not interacted with
-     */
-    private suspend fun handlePreviousNotification(currentTimeOfWork: Long) {
-        val lastHourId = prefs.getString(PREF_HOURLY_ID, "")
-
-        // If we have a previous check recorded
-        if (!lastHourId.isNullOrEmpty()) {
-            // Check if we already have a mood entry for that hour
-            val hasEntry = dataManager.hasEntryForHour(lastHourId)
-
-            // If no entry exists, record "Asleep"
-            if (!hasEntry) {
-                dataManager.addMoodEntry("Asleep", lastHourId, prefs.getLong(PREF_LAST_CHECK_TIME, 0))
-            }
-        }
-
-        // Cancel any existing notification
-        cancelNotification(applicationContext)
     }
 
     /**
