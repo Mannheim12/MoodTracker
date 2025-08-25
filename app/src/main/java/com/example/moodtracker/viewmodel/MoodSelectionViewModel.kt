@@ -27,7 +27,8 @@ data class MoodSelectionUiState(
     val timeText: String = "",
     val isLoading: Boolean = true,
     val moodRecorded: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val closeScreen: Boolean = false
 )
 
 class MoodSelectionViewModel(
@@ -130,29 +131,23 @@ class MoodSelectionViewModel(
             }
 
             override fun onFinish() {
+                // If timeout occurs, close the screen without recording a mood
                 if (!_uiState.value.moodRecorded) {
-                    viewModelScope.launch {
-                        if (!_uiState.value.moodRecorded) { // Double check
-                            _uiState.update { it.copy(promptText = "Timeout. Recording 'Asleep'.") }
-                            onMoodSelected("Asleep") {
-                                // Screen's LaunchedEffect handles closure via uiState.moodRecorded
-                            }
-                        }
-                    }
+                    _uiState.update { it.copy(closeScreen = true) }
                 }
             }
         }.start()
     }
 
-    fun handleBackPress(onMoodRecordedForBackPress: () -> Unit) {
+    fun handleBackPress(onNothingRecordedCallback: () -> Unit) {
         if (!_uiState.value.moodRecorded) {
-            viewModelScope.launch {
-                onMoodSelected("Asleep", onMoodRecordedForBackPress)
-            }
+            moodSelectionTimer?.cancel()
+            _uiState.update { it.copy(closeScreen = true) }
         } else {
-            onMoodRecordedForBackPress()
+            onNothingRecordedCallback()
         }
     }
+
 
     override fun onCleared() {
         super.onCleared()

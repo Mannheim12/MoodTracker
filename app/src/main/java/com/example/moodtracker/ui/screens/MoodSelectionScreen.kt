@@ -149,8 +149,8 @@ fun MoodSelectionScreen(
     )
     val uiState by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(uiState.moodRecorded) {
-        if (uiState.moodRecorded) {
+    LaunchedEffect(uiState.moodRecorded, uiState.closeScreen) {
+        if (uiState.moodRecorded || uiState.closeScreen) {
             if (uiState.promptText.contains("Timeout")) {
                 delay(2000)
             }
@@ -160,7 +160,7 @@ fun MoodSelectionScreen(
 
     BackHandler {
         viewModel.handleBackPress {
-            // Closure handled by LaunchedEffect
+            onCloseScreen()
         }
     }
 
