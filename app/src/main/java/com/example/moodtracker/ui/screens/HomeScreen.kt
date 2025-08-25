@@ -51,12 +51,15 @@ import androidx.navigation.NavController
 import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.ui.Screen
 import com.example.moodtracker.viewmodel.DebugInfoUiState
+import com.example.moodtracker.viewmodel.DisplayMissedEntry
 import com.example.moodtracker.viewmodel.DisplayMoodEntry
 import com.example.moodtracker.viewmodel.HomeViewModel
+import com.example.moodtracker.viewmodel.MissedEntriesUiState
 import com.example.moodtracker.viewmodel.TrackingStatusUiState
 import com.example.moodtracker.viewmodel.TodaysMoodsUiState
 import com.example.moodtracker.viewmodel.MoodDebugInfo
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -68,6 +71,7 @@ fun HomeScreen(
 ) {
     val trackingStatusState by homeViewModel.trackingStatusUiState.collectAsState()
     val todaysMoodsState by homeViewModel.todaysMoodsUiState.collectAsState()
+    val missedEntriesState by homeViewModel.missedEntriesUiState.collectAsState()
     val debugInfoState by homeViewModel.debugInfoUiState.collectAsState()
 
     // Reload data when the screen becomes visible
@@ -125,7 +129,10 @@ fun HomeScreen(
                 )
             }
             item {
-                MissedEntriesCard()
+                MissedEntriesCard(
+                    state = missedEntriesState,
+                    onMissedEntryClick = { hourId -> homeViewModel.onMissedEntryClicked(hourId) }
+                )
             }
             item {
                 TodaysMoodsCard(todaysMoodsState)
@@ -297,7 +304,7 @@ fun QuickActionsCard(isActive: Boolean, onCheckNow: () -> Unit, onToggleTracking
 }
 
 @Composable
-fun MissedEntriesCard() {
+fun MissedEntriesCard(state: MissedEntriesUiState, onMissedEntryClick: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
@@ -305,10 +312,26 @@ fun MissedEntriesCard() {
         Column(modifier = Modifier.padding(16.dp)) {
             Text("Missed Entries", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
-            Text(
-                "List of missed entries and ability to fill them coming soon.",
-                style = MaterialTheme.typography.bodyMedium
-            )
+
+            if (state.isLoading) {
+                CircularProgressIndicator()
+            } else if (state.missedEntries.isEmpty()) {
+                Text(
+                    "No missed entries to show.",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    state.missedEntries.forEach { missedEntry ->
+                        Button(
+                            onClick = { onMissedEntryClick(missedEntry.hourId) },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(missedEntry.displayText)
+                        }
+                    }
+                }
+            }
         }
     }
 }

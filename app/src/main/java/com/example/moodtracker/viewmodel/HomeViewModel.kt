@@ -2,6 +2,7 @@ package com.example.moodtracker.viewmodel
 
 import android.app.Application
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.PowerManager
@@ -16,6 +17,7 @@ import androidx.work.WorkManager
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.Mood
 import com.example.moodtracker.model.MoodEntry
+import com.example.moodtracker.ui.ComposeMoodSelectionActivity
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import com.example.moodtracker.worker.MoodCheckWorker
@@ -51,6 +53,16 @@ data class TodaysMoodsUiState(
     val isLoading: Boolean = true,
     val moods: List<DisplayMoodEntry> = emptyList(),
     val message: String? = null // e.g., "No moods recorded in the last 24 hours."
+)
+
+data class DisplayMissedEntry(
+    val hourId: String,
+    val displayText: String
+)
+
+data class MissedEntriesUiState(
+    val isLoading: Boolean = true,
+    val missedEntries: List<DisplayMissedEntry> = emptyList()
 )
 
 // New UI State for Debug Information
@@ -103,6 +115,9 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _todaysMoodsUiState = MutableStateFlow(TodaysMoodsUiState())
     val todaysMoodsUiState: StateFlow<TodaysMoodsUiState> = _todaysMoodsUiState.asStateFlow()
 
+    private val _missedEntriesUiState = MutableStateFlow(MissedEntriesUiState())
+    val missedEntriesUiState: StateFlow<MissedEntriesUiState> = _missedEntriesUiState.asStateFlow()
+
     private val _debugInfoUiState = MutableStateFlow(DebugInfoUiState())
     val debugInfoUiState: StateFlow<DebugInfoUiState> = _debugInfoUiState.asStateFlow()
 
@@ -128,16 +143,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _trackingStatusUiState.update { it.copy(isLoading = true) }
             _todaysMoodsUiState.update { it.copy(isLoading = true) }
+            _missedEntriesUiState.update { it.copy(isLoading = true) }
 
             // Load and process config information
             val currentConfig = configManager.loadConfig()
 
             fetchTrackingStatus()
             fetchTodaysMoods()
+            fetchMissedEntries()
             fetchDebugInfo(currentConfig) // Pass the already loaded config
 
             _trackingStatusUiState.update { it.copy(isLoading = false) }
             _todaysMoodsUiState.update { it.copy(isLoading = false) }
+            _missedEntriesUiState.update { it.copy(isLoading = false) }
         }
     }
 
@@ -175,6 +193,46 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val displayEntries = processMoodEntriesForDisplay(rawEntries)
         _todaysMoodsUiState.update {
             it.copy(moods = displayEntries, message = null, isLoading = false)
+        }
+    }
+
+    private suspend fun fetchMissedEntries() {
+        val missedIds = dataManager.getMissedEntryHourIds()
+        val displayEntries = missedIds.map { hourId ->
+            DisplayMissedEntry(
+                hourId = hourId,
+                displayText = formatMissedEntryIdForDisplay(hourId)
+            )
+        }
+        _missedEntriesUiState.update {
+            it.copy(missedEntries = displayEntries, isLoading = false)
+        }
+    }
+
+    /**
+     * Formats a missed entry hour ID into a user-friendly string like "Today at 5 PM".
+     * This is presentation logic, so it lives in the ViewModel.
+     */
+    private fun formatMissedEntryIdForDisplay(hourId: String): String {
+        if (hourId.length != 10) return "Invalid time"
+
+        return try {
+            val inputFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
+            val date = inputFormat.parse(hourId) ?: return "Invalid date"
+
+            val dayString = when {
+                android.text.format.DateUtils.isToday(date.time) -> "Today at"
+                // Check if the date was yesterday
+                android.text.format.DateUtils.isToday(date.time + TimeUnit.DAYS.toMillis(1)) -> "Yesterday at"
+                else -> SimpleDateFormat("MMM d 'at'", Locale.getDefault()).format(date)
+            }
+
+            // Adhere to DRY by reusing the ConfigManager's hour formatting logic
+            val timeString = configManager.formatHourIdForDisplay(hourId)
+
+            "$dayString $timeString"
+        } catch (e: Exception) {
+            "Invalid format"
         }
     }
 
@@ -458,6 +516,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
         // Refresh status quickly
         viewModelScope.launch { fetchTrackingStatus() }
+    }
+
+    fun onMissedEntryClicked(hourId: String) {
+        val context = getApplication<Application>().applicationContext
+        val intent = Intent(context, ComposeMoodSelectionActivity::class.java).apply {
+            putExtra(ComposeMoodSelectionActivity.EXTRA_HOUR_ID, hourId)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        context.startActivity(intent)
     }
 
     fun onViewDatabaseClicked() {
