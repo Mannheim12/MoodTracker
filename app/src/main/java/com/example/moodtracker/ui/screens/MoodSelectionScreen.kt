@@ -159,9 +159,7 @@ fun MoodSelectionScreen(
     }
 
     BackHandler {
-        viewModel.handleBackPress {
-            onCloseScreen()
-        }
+        viewModel.handleBackPress()
     }
 
     Scaffold(

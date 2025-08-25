@@ -139,12 +139,10 @@ class MoodSelectionViewModel(
         }.start()
     }
 
-    fun handleBackPress(onNothingRecordedCallback: () -> Unit) {
+    fun handleBackPress() {
         if (!_uiState.value.moodRecorded) {
             moodSelectionTimer?.cancel()
             _uiState.update { it.copy(closeScreen = true) }
-        } else {
-            onNothingRecordedCallback()
         }
     }
 
