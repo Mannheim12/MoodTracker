@@ -22,6 +22,9 @@ abstract class AppDatabase : RoomDatabase() {
         @Query("SELECT * FROM mood_entries WHERE id = :hourId")
         fun getEntryByHourId(hourId: String): MoodEntry?
 
+        @Query("SELECT * FROM mood_entries WHERE id IN (:hourIds)")
+        fun getEntriesByHourIds(hourIds: List<String>): List<MoodEntry>
+
         @Insert(onConflict = OnConflictStrategy.REPLACE)
         fun insertOrUpdateEntry(entry: MoodEntry)
 
