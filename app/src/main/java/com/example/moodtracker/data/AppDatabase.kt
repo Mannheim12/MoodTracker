@@ -37,7 +37,7 @@ abstract class AppDatabase : RoomDatabase() {
         @Query("DELETE FROM mood_entries") // New method
         suspend fun deleteAllEntries()
 
-        @Query("SELECT * FROM mood_entries WHERE timestamp >= :sinceTimestamp ORDER BY timestamp DESC")
+        @Query("SELECT * FROM mood_entries WHERE timestamp >= :sinceTimestamp ORDER BY id ASC")
         suspend fun getEntriesSince(sinceTimestamp: Long): List<MoodEntry>
     }
 

@@ -121,7 +121,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _debugInfoUiState = MutableStateFlow(DebugInfoUiState())
     val debugInfoUiState: StateFlow<DebugInfoUiState> = _debugInfoUiState.asStateFlow()
 
-
     // For time formatting, considering user's preference
     private val userTimeFormat: String by lazy { configManager.loadConfig().timeFormat }
     private val displayHourFormat: SimpleDateFormat by lazy {
@@ -181,11 +180,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         calendar.add(Calendar.HOUR_OF_DAY, -24)
         val sinceTimestamp = calendar.timeInMillis
 
-        val rawEntries = dataManager.getMoodEntriesSince(sinceTimestamp).sortedBy { it.timestamp } // Oldest first for processing
+        val rawEntries = dataManager.getMoodEntriesSince(sinceTimestamp)
 
         if (rawEntries.isEmpty()) {
             _todaysMoodsUiState.update {
-                it.copy(moods = emptyList(), message = "No moods recorded in the last 24 hours.", isLoading = false)
+                it.copy(moods = emptyList(), message = "No moods recorded in the last 24 hours.", isLoading = false) //TODO make this message change based on the config
             }
             return
         }
@@ -391,100 +390,55 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun processMoodEntriesForDisplay(entries: List<MoodEntry>): List<DisplayMoodEntry> {
         if (entries.isEmpty()) return emptyList()
 
-        val groupedDisplayEntries = mutableListOf<DisplayMoodEntry>()
-        var currentGroupStartTime = entries.first().timestamp
-        var currentGroupMoodName = entries.first().moodName
-        var currentGroupStartHourId = entries.first().id
-
+        val displayEntries = mutableListOf<DisplayMoodEntry>()
+        var groupStartEntry = entries.first()
 
         for (i in 1 until entries.size) {
             val currentEntry = entries[i]
-            val prevEntry = entries[i-1]
+            val prevEntry = entries[i - 1]
 
-            // Check if mood changed OR if there's a time gap greater than 1 hour
-            // (assuming mood IDs like yyyyMMddHH are consecutive for consecutive hours)
-            val prevHourCal = Calendar.getInstance().apply { time = moodIdHourFormat.parse(prevEntry.id) ?: Date(prevEntry.timestamp) }
-            val currentHourCal = Calendar.getInstance().apply { time = moodIdHourFormat.parse(currentEntry.id) ?: Date(currentEntry.timestamp) }
-            prevHourCal.add(Calendar.HOUR_OF_DAY, 1)
-
-
-            if (currentEntry.moodName != currentGroupMoodName || !isSameHour(prevHourCal, currentHourCal)) {
-                // End previous group
-                val mood = allConfigMoods.find { it.name == currentGroupMoodName }
-                val moodColor = mood?.getColor() ?: Color.Gray.toArgb() // Default color
-                val startTimeCal = Calendar.getInstance().apply { timeInMillis = currentGroupStartTime }
-                val endTimeCal = Calendar.getInstance().apply { timeInMillis = prevEntry.timestamp }
-
-                // Determine if this is a single hour or range
-                val timeRange = if (currentGroupStartHourId == prevEntry.id) {
-                    // Single hour entry
-                    formatTimeForDisplay(startTimeCal)
-                } else {
-                    // Range of hours
-                    "${formatTimeForDisplay(startTimeCal)} - ${formatTimeForDisplay(endTimeCal, true)}"
-                }
-
-                groupedDisplayEntries.add(
-                    DisplayMoodEntry(
-                        id = currentGroupStartHourId + "-" + prevEntry.id, // Composite ID
-                        timeRange = timeRange,
-                        moodName = currentGroupMoodName,
-                        moodColor = moodColor,
-                        startHour = startTimeCal.get(Calendar.HOUR_OF_DAY),
-                        startTimestamp = currentGroupStartTime
-                    )
-                )
-                // Start new group
-                currentGroupStartTime = currentEntry.timestamp
-                currentGroupMoodName = currentEntry.moodName
-                currentGroupStartHourId = currentEntry.id
+            // A group ends if the mood name changes
+            if (currentEntry.moodName != groupStartEntry.moodName) {
+                displayEntries.add(createDisplayEntry(groupStartEntry, prevEntry))
+                groupStartEntry = currentEntry
             }
         }
 
-        // Add the last group
-        val lastEntry = entries.last()
-        val mood = allConfigMoods.find { it.name == currentGroupMoodName }
-        val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
-        val startTimeCalLast = Calendar.getInstance().apply { timeInMillis = currentGroupStartTime }
-        val endTimeCalLast = Calendar.getInstance().apply { timeInMillis = lastEntry.timestamp }
+        // Add the final group
+        displayEntries.add(createDisplayEntry(groupStartEntry, entries.last()))
 
-        // Determine if this is a single hour or range
-        val timeRange = if (currentGroupStartHourId == lastEntry.id) {
+        return displayEntries.sortedByDescending { it.id }
+    }
+
+    private fun createDisplayEntry(startEntry: MoodEntry, endEntry: MoodEntry): DisplayMoodEntry {
+        val mood = allConfigMoods.find { it.name == startEntry.moodName }
+        val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
+        val startTimeCal = Calendar.getInstance().apply { time = moodIdHourFormat.parse(startEntry.id) ?: Date(startEntry.timestamp) }
+
+        val timeRange = if (startEntry.id == endEntry.id) {
             // Single hour entry
-            formatTimeForDisplay(startTimeCalLast)
+            formatTimeForDisplay(startTimeCal)
         } else {
             // Range of hours
-            "${formatTimeForDisplay(startTimeCalLast)} - ${formatTimeForDisplay(endTimeCalLast, true)}"
+            val endTimeCal = Calendar.getInstance().apply { time = moodIdHourFormat.parse(endEntry.id) ?: Date(endEntry.timestamp) }
+            "${formatTimeForDisplay(startTimeCal)} - ${formatTimeForDisplay(endTimeCal)}"
         }
 
-        groupedDisplayEntries.add(
-            DisplayMoodEntry(
-                id = currentGroupStartHourId + "-" + lastEntry.id,
-                timeRange = timeRange,
-                moodName = currentGroupMoodName,
-                moodColor = moodColor,
-                startHour = startTimeCalLast.get(Calendar.HOUR_OF_DAY),
-                startTimestamp = currentGroupStartTime
-            )
+        return DisplayMoodEntry(
+            id = startEntry.id,
+            timeRange = timeRange,
+            moodName = startEntry.moodName,
+            moodColor = moodColor,
+            startHour = startTimeCal.get(Calendar.HOUR_OF_DAY),
+            startTimestamp = startEntry.timestamp
         )
-
-        // Sort by actual timestamp (most recent first)
-        return groupedDisplayEntries.sortedByDescending { it.startTimestamp }
     }
-
-    private fun isSameHour(cal1: Calendar, cal2: Calendar): Boolean {
-        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR) &&
-                cal1.get(Calendar.HOUR_OF_DAY) == cal2.get(Calendar.HOUR_OF_DAY)
-    }
-
 
     private fun formatTimeForDisplay(calendar: Calendar, isEndTime: Boolean = false): String {
         val tempCal = Calendar.getInstance()
         tempCal.timeInMillis = calendar.timeInMillis
         return displayHourFormat.format(tempCal.time)
     }
-
 
     private fun formatNextCheckTime(nextCheckTimestamp: Long): String {
         val now = System.currentTimeMillis()
