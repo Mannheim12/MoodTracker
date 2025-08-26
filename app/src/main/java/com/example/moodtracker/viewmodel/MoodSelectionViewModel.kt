@@ -17,9 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 data class MoodSelectionUiState(
     val moods: List<Mood> = emptyList(),
@@ -70,13 +67,8 @@ class MoodSelectionViewModel(
                     if (targetHourId != null) {
                         "For $formattedHourText"
                     } else {
-                        val userTimeFormat = configManager.loadConfig().timeFormat
-                        val currentTimePattern = when (userTimeFormat) {
-                            ConfigManager.TimeFormat.H24 -> "HH:mm"
-                            else -> "h:mm a"
-                        }
-                        val sdfCurrent = SimpleDateFormat(currentTimePattern, Locale.getDefault())
-                        val currentTimeString = sdfCurrent.format(Date())
+                        // Use ConfigManager for current time instead of manual formatting
+                        val currentTimeString = configManager.formatCurrentTimeForDisplay()
                         "For $formattedHourText (Current: $currentTimeString)"
                     }
                 }

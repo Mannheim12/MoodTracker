@@ -33,7 +33,6 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.Date
-import java.util.TimeZone
 
 data class TrackingStatusUiState(
     val isLoading: Boolean = true,
@@ -122,13 +121,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _debugInfoUiState = MutableStateFlow(DebugInfoUiState())
     val debugInfoUiState: StateFlow<DebugInfoUiState> = _debugInfoUiState.asStateFlow()
 
-    // For time formatting, considering user's preference
-    private val userTimeFormat: String by lazy { configManager.loadConfig().timeFormat }
-    private val moodIdHourFormat = SimpleDateFormat("yyyyMMddHH", Locale.US).apply {
-        timeZone = TimeZone.getTimeZone("UTC")
-    }
-
-
     init {
         viewModelScope.launch {
             allConfigMoods = withContext(Dispatchers.IO) { configManager.loadMoods() }
@@ -208,28 +200,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Formats a missed entry hour ID into a user-friendly string like "Today at 5 PM".
-     * This is presentation logic, so it lives in the ViewModel.
+     * Now uses ConfigManager for all time formatting.
      */
     private fun formatMissedEntryIdForDisplay(hourId: String): String {
-        if (hourId.length != 10) return "Invalid time"
-
-        return try {
-            val date = moodIdHourFormat.parse(hourId) ?: return "Invalid date"
-
-            val dayString = when {
-                android.text.format.DateUtils.isToday(date.time) -> "Today at"
-                // Check if the date was yesterday
-                android.text.format.DateUtils.isToday(date.time + TimeUnit.DAYS.toMillis(1)) -> "Yesterday at"
-                else -> SimpleDateFormat("MMM d 'at'", Locale.getDefault()).format(date)
-            }
-
-            // Adhere to DRY by reusing the ConfigManager's hour formatting logic
-            val timeString = configManager.formatHourIdForDisplay(hourId)
-
-            "$dayString $timeString"
-        } catch (e: Exception) {
-            "Invalid format"
-        }
+        return configManager.formatHourIdForDisplay(hourId, includeDate = true)
     }
 
     private fun fetchDebugInfo(config: ConfigManager.Config) {
@@ -411,36 +385,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val mood = allConfigMoods.find { it.name == startEntry.moodName }
         val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
 
-        val displayTimeZone = try {
-            TimeZone.getTimeZone(startEntry.timeZoneId)
-        } catch (e: Exception) {
-            TimeZone.getDefault() // Fallback to device default if ID is invalid
-        }
-
-        val displayHourFormat = when (userTimeFormat) {
-            ConfigManager.TimeFormat.H24 -> SimpleDateFormat("HH:00", Locale.getDefault())
-            else -> SimpleDateFormat("h a", Locale.getDefault())
-        }.apply {
-            timeZone = displayTimeZone
-        }
-
-        val startTimeCal = Calendar.getInstance(displayTimeZone).apply { timeInMillis = startEntry.timestamp }
-
+        // Simplified time formatting using ConfigManager
         val timeRange = if (startEntry.id == endEntry.id) {
-            // Single hour entry
-            displayHourFormat.format(startTimeCal.time)
+            // Single hour entry - use ConfigManager to format the timestamp
+            configManager.formatUtcTimestampForDisplay(startEntry.timestamp)
         } else {
-            // Range of hours
-            val endTimeCal = Calendar.getInstance(displayTimeZone).apply { timeInMillis = endEntry.timestamp }
-            "${displayHourFormat.format(startTimeCal.time)} - ${displayHourFormat.format(endTimeCal.time)}"
+            // Range of hours - use ConfigManager to format the range
+            configManager.formatTimeRange(startEntry.timestamp, endEntry.timestamp)
         }
+
+        // Extract start hour for backward compatibility (if needed elsewhere)
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = startEntry.timestamp
+        }
+        val startHour = calendar.get(Calendar.HOUR_OF_DAY)
 
         return DisplayMoodEntry(
             id = startEntry.id,
             timeRange = timeRange,
             moodName = startEntry.moodName,
             moodColor = moodColor,
-            startHour = startTimeCal.get(Calendar.HOUR_OF_DAY),
+            startHour = startHour,
             startTimestamp = startEntry.timestamp
         )
     }

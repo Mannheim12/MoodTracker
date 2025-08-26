@@ -19,6 +19,7 @@ import com.example.moodtracker.util.DataManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.Calendar
+import java.util.TimeZone
 import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.TimeUnit
 
@@ -48,10 +49,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * @param isImmediate If true, shows notification immediately
          */
         fun startTracking(context: Context, isImmediate: Boolean = false) {
-            // First check consistency to ensure we're in a good state
-            checkTrackingConsistency(context)
-
-            // Cancel any existing work
+            // Cancel any existing work first
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
             // Calculate initial delay
@@ -83,9 +81,6 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * Stops mood tracking completely
          */
         fun stopTracking(context: Context) {
-            // First check consistency to ensure we're in a good state
-            checkTrackingConsistency(context)
-
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
             // Update SharedPreferences
@@ -100,8 +95,9 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
         /**
          * Calculates the next interval based on config settings and hourly constraints
+         * Scheduling uses local timezone so notifications appear at reasonable local times
          * The next check will be a random time that satisfies:
-         * 1. Within hour X+1
+         * 1. Within hour X+1 (in local time)
          * 2. Between 30-90 minutes from now (or configured interval)
          */
         fun calculateNextInterval(context: Context): Long {
@@ -113,16 +109,18 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
             val now = System.currentTimeMillis()
 
-            // Calculate the start and end of the next hour (hour X+1)
-            val calendar = Calendar.getInstance().apply {
+            // Use explicit local timezone for scheduling (notifications should appear at reasonable local times)
+            val localTimeZone = TimeZone.getDefault()
+            val calendar = Calendar.getInstance(localTimeZone).apply {
                 timeInMillis = now
-                add(Calendar.HOUR_OF_DAY, 1) // Move to next hour
+                add(Calendar.HOUR_OF_DAY, 1) // Move to next local hour
                 set(Calendar.MINUTE, 0)
                 set(Calendar.SECOND, 0)
                 set(Calendar.MILLISECOND, 0)
             }
             val nextHourStart = calendar.timeInMillis
 
+            // Set end of next hour with buffer
             calendar.apply {
                 set(Calendar.MINUTE, 59)
                 set(Calendar.SECOND, 44) // 15 second buffer to avoid edge cases
@@ -130,11 +128,11 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             }
             val nextHourEnd = calendar.timeInMillis
 
-            // Calculate interval constraints
+            // Calculate interval constraints from current time
             val minTime = now + TimeUnit.MINUTES.toMillis(minIntervalMinutes.toLong())
             val maxTime = now + TimeUnit.MINUTES.toMillis(maxIntervalMinutes.toLong())
 
-            // Find the overlap between the two constraints
+            // Find the valid scheduling window (intersection of hour constraint and interval constraint)
             val validStart = maxOf(nextHourStart, minTime)
             val validEnd = minOf(nextHourEnd, maxTime)
 
@@ -142,46 +140,11 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val randomOffset = if (validEnd > validStart) {
                 ThreadLocalRandom.current().nextLong(validEnd - validStart + 1)
             } else {
-                0L // Fallback in case of unexpected range issues
+                0L // Fallback: schedule immediately if no valid range
             }
 
             val nextCheckTime = validStart + randomOffset
-
             return nextCheckTime - now
-        }
-
-        /**
-         * Checks if tracking state is consistent with WorkManager state
-         * Corrects inconsistencies if found
-         */
-        /* TODO: This function shouldn't be starting workers on its own.
-           Program should be reworked so the state tracking is accurate without this behavior
-         */
-        fun checkTrackingConsistency(context: Context) {
-            val isActive = isTrackingActive(context)
-
-            val workManager = WorkManager.getInstance(context)
-            val workInfoFuture = workManager.getWorkInfosForUniqueWork(UNIQUE_WORK_NAME)
-
-            try {
-                val workInfos = workInfoFuture.get()
-                val hasScheduledWork = workInfos.isNotEmpty() &&
-                        workInfos.any { !it.state.isFinished }
-
-                if (isActive && !hasScheduledWork) {
-                    // Tracking enabled but no worker - restart worker
-                    startTracking(context, false)
-                } else if (!isActive && hasScheduledWork) {
-                    // Tracking disabled but worker active - stop worker
-                    stopTracking(context)
-                }
-            } catch (e: Exception) {
-                // If we can't determine state, reset to a safe state
-                if (isActive) {
-                    // Restart tracking if it was supposed to be on
-                    startTracking(context, false)
-                }
-            }
         }
 
         /**
@@ -214,7 +177,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             // Record current time
             val now = System.currentTimeMillis()
 
-            // Generate hourly ID for this check
+            // Generate hourly ID for this check (UTC-based for data consistency)
             val currentHourId = withContext(Dispatchers.IO) {
                 dataManager.generateHourId(now)
             }
@@ -227,16 +190,14 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             // Store the current hour ID for this check
             prefs.edit().putString(PREF_HOURLY_ID, currentHourId).apply()
 
-            // Update check time
+            // Update last check time
             prefs.edit().putLong(PREF_LAST_CHECK_TIME, now).apply()
 
             // Show the mood check notification
             showMoodCheckNotification(currentHourId)
 
-            // Calculate next interval - use the companion method to avoid code duplication
-            val nextIntervalMillis = calculateNextInterval(applicationContext)
-
             // Schedule next work
+            val nextIntervalMillis = calculateNextInterval(applicationContext)
             val nextCheckTime = now + nextIntervalMillis
             prefs.edit().putLong(PREF_NEXT_CHECK_TIME, nextCheckTime).apply()
 
@@ -259,6 +220,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
     /**
      * Shows the notification that persists until next check
+     * Uses ConfigManager for consistent time formatting
      */
     private fun showMoodCheckNotification(hourIdForSelection: String) {
         // Create intent for notification tap
@@ -274,7 +236,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        // Get the hourID text
+        // Use ConfigManager for consistent hour formatting (already UTC-aware)
         val hourText = configManager.formatHourIdForDisplay(hourIdForSelection)
 
         // Build the notification

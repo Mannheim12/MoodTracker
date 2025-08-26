@@ -46,10 +46,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.ui.Screen
+import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.viewmodel.DebugInfoUiState
 import com.example.moodtracker.viewmodel.DisplayMoodEntry
 import com.example.moodtracker.viewmodel.HomeViewModel
@@ -57,9 +59,6 @@ import com.example.moodtracker.viewmodel.MissedEntriesUiState
 import com.example.moodtracker.viewmodel.TrackingStatusUiState
 import com.example.moodtracker.viewmodel.TodaysMoodsUiState
 import com.example.moodtracker.viewmodel.MoodDebugInfo
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -526,7 +525,8 @@ fun DebugMoodRow(mood: MoodDebugInfo) {
 
 @Composable
 fun DatabaseViewDialog(entries: List<MoodEntry>, onDismiss: () -> Unit) {
-    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()) }
+    val context = LocalContext.current
+    val configManager = remember { ConfigManager(context) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -534,7 +534,11 @@ fun DatabaseViewDialog(entries: List<MoodEntry>, onDismiss: () -> Unit) {
         text = {
             LazyColumn {
                 items(entries) { entry ->
-                    val formattedDate = dateFormat.format(Date(entry.timestamp))
+                    // Use ConfigManager for consistent time formatting instead of local SimpleDateFormat
+                    val formattedDate = configManager.formatUtcTimestampForDisplay(
+                        entry.timestamp,
+                        "yyyy-MM-dd HH:mm:ss"
+                    )
                     Text(
                         text = "${entry.id} | ${entry.moodName} | $formattedDate",
                         fontFamily = FontFamily.Monospace,

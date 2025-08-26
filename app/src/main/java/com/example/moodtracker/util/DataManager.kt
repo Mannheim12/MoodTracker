@@ -21,10 +21,14 @@ import kotlin.random.Random
  * Handles reading and writing mood data using Room database and CSV export
  */
 class DataManager(private val context: Context) {
+    // Keep UTC hour ID generation - this is correct
     private val hourIdFormat = SimpleDateFormat("yyyyMMddHH", Locale.US).apply {
         timeZone = TimeZone.getTimeZone("UTC")
     }
-    private val fullDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
+    // For CSV import parsing - keep specific format for compatibility
+    private val csvDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
+
     private val configManager = ConfigManager(context)
 
     // Get the Room database instance
@@ -116,6 +120,7 @@ class DataManager(private val context: Context) {
 
     /**
      * Export all entries to a CSV file at the given URI
+     * Uses ConfigManager for consistent timezone handling
      * @param uri The URI to export to
      * @return true if export was successful, false otherwise
      */
@@ -135,9 +140,13 @@ class DataManager(private val context: Context) {
                             .build()
                     )
 
-                    // Print records
+                    // Print records - use ConfigManager for consistent timezone conversion
                     entries.forEach { entry ->
-                        val formattedDate = fullDateFormat.format(Date(entry.timestamp))
+                        // Use ConfigManager for consistent UTC->local conversion in CSV export
+                        val formattedDate = configManager.formatUtcTimestampForDisplay(
+                            entry.timestamp,
+                            "yyyy-MM-dd HH:mm:ss"
+                        )
                         printer.printRecord(entry.id, formattedDate, entry.moodName, entry.timeZoneId)
                     }
 
@@ -174,8 +183,10 @@ class DataManager(private val context: Context) {
                     val moodName = record.get("mood")
                     val timeZoneId = record.get("timezone") ?: TimeZone.getDefault().id
 
+                    // Parse the CSV timestamp - assume it was exported in local time format
+                    // This maintains compatibility with existing CSV files
                     val timestamp = try {
-                        fullDateFormat.parse(timestampStr)?.time ?: System.currentTimeMillis()
+                        csvDateFormat.parse(timestampStr)?.time ?: System.currentTimeMillis()
                     } catch (e: Exception) {
                         System.currentTimeMillis()
                     }
