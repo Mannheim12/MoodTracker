@@ -385,20 +385,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         val mood = allConfigMoods.find { it.name == startEntry.moodName }
         val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
 
-        // Simplified time formatting using ConfigManager
+        // Use hourIDs (not timestamps) for consistent hour slot display like missed entries
         val timeRange = if (startEntry.id == endEntry.id) {
-            // Single hour entry - use ConfigManager to format the timestamp
-            configManager.formatUtcTimestampForDisplay(startEntry.timestamp)
+            // Single hour entry - show the hour slot this entry represents
+            configManager.formatHourIdForDisplay(startEntry.id)
         } else {
-            // Range of hours - use ConfigManager to format the range
-            configManager.formatTimeRange(startEntry.timestamp, endEntry.timestamp)
+            // Range of hours - show from start hourID to end hourID
+            val startHourDisplay = configManager.formatHourIdForDisplay(startEntry.id)
+            val endHourDisplay = configManager.formatHourIdForDisplay(endEntry.id)
+            "$startHourDisplay - $endHourDisplay"
         }
 
-        // Extract start hour for backward compatibility (if needed elsewhere)
-        val calendar = Calendar.getInstance().apply {
-            timeInMillis = startEntry.timestamp
+        // Extract start hour for backward compatibility using hourID (not timestamp)
+        val startHourTimestamp = configManager.convertUtcHourIdToTimestamp(startEntry.id)
+        val startHour = if (startHourTimestamp != null) {
+            val calendar = Calendar.getInstance().apply {
+                timeInMillis = startHourTimestamp
+            }
+            calendar.get(Calendar.HOUR_OF_DAY)
+        } else {
+            0 // Fallback if hourID is invalid
         }
-        val startHour = calendar.get(Calendar.HOUR_OF_DAY)
 
         return DisplayMoodEntry(
             id = startEntry.id,
