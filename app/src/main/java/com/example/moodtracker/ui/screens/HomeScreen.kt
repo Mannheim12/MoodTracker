@@ -525,8 +525,12 @@ fun DebugMoodRow(mood: MoodDebugInfo) {
 
 @Composable
 fun DatabaseViewDialog(entries: List<MoodEntry>, onDismiss: () -> Unit) {
-    val context = LocalContext.current
-    val configManager = remember { ConfigManager(context) }
+    // For debugging - show raw UTC timestamps and timezone field
+    val utcFormatter = remember {
+        java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).apply {
+            timeZone = java.util.TimeZone.getTimeZone("UTC")
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -534,13 +538,10 @@ fun DatabaseViewDialog(entries: List<MoodEntry>, onDismiss: () -> Unit) {
         text = {
             LazyColumn {
                 items(entries) { entry ->
-                    // Use ConfigManager for consistent time formatting instead of local SimpleDateFormat
-                    val formattedDate = configManager.formatUtcTimestampForDisplay(
-                        entry.timestamp,
-                        "yyyy-MM-dd HH:mm:ss"
-                    )
+                    // Show raw UTC timestamp for debugging (not converted to local)
+                    val utcTimestamp = utcFormatter.format(java.util.Date(entry.timestamp))
                     Text(
-                        text = "${entry.id} | ${entry.moodName} | $formattedDate",
+                        text = "${entry.id} | ${entry.moodName} | ${utcTimestamp} UTC | ${entry.timeZoneId}",
                         fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.bodySmall
                     )
