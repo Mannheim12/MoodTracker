@@ -9,13 +9,21 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.text.SimpleDateFormat
 import java.util.Calendar
+import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
 /**
  * Handles reading and writing configuration using .json file
+ * Also handles all UTC to local time conversions for display
  */
 class ConfigManager(private val context: Context) {
+
+    // Core UTC formatters - these handle all UTC parsing
+    private val utcHourIdFormat = SimpleDateFormat("yyyyMMddHH", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
+
     // Data class for configuration
     data class Config(
         // Mood & Tracking
@@ -73,6 +81,111 @@ class ConfigManager(private val context: Context) {
         const val MONTHLY_FIRST = "monthly_first"
     }
 
+    // ========== TIME CONVERSION FUNCTIONS ==========
+
+    /**
+     * Core function: Convert UTC timestamp to local time formatted string
+     * All other time formatting should build on this
+     */
+    fun formatUtcTimestampForDisplay(utcTimestamp: Long, pattern: String? = null): String {
+        val config = loadConfig()
+        val displayPattern = pattern ?: when (config.timeFormat) {
+            TimeFormat.H24 -> "HH:mm"
+            else -> "h:mm a" // Default to 12-hour for H12 and SYSTEM_DEFAULT
+        }
+
+        val formatter = SimpleDateFormat(displayPattern, Locale.getDefault()).apply {
+            timeZone = TimeZone.getDefault() // Convert UTC to local time zone
+        }
+
+        return formatter.format(Date(utcTimestamp))
+    }
+
+    /**
+     * Convert UTC hour ID to local timestamp
+     * Returns null if hour ID is invalid
+     */
+    fun convertUtcHourIdToTimestamp(hourId: String): Long? {
+        if (hourId.length != 10) return null
+
+        return try {
+            utcHourIdFormat.parse(hourId)?.time
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * Format UTC hour ID for display (existing function - now builds on core functions)
+     * @param hourId The UTC hour ID string (e.g., "2023111522")
+     * @param includeDate Whether to include date context like "Today at", "Yesterday at"
+     * @return The formatted hour string (e.g., "5 PM", "Today at 5 PM"), or "N/A" if invalid
+     */
+    fun formatHourIdForDisplay(hourId: String, includeDate: Boolean = false): String {
+        val timestamp = convertUtcHourIdToTimestamp(hourId) ?: return "N/A"
+
+        if (!includeDate) {
+            // Just show the hour
+            val config = loadConfig()
+            val pattern = when (config.timeFormat) {
+                TimeFormat.H24 -> "HH:00"
+                else -> "h a"
+            }
+            return formatUtcTimestampForDisplay(timestamp, pattern)
+        }
+
+        // Include relative date context
+        return formatTimestampWithRelativeDate(timestamp)
+    }
+
+    /**
+     * Format timestamp with relative date context like "Today at 5 PM", "Yesterday at 3 PM"
+     */
+    fun formatTimestampWithRelativeDate(utcTimestamp: Long): String {
+        val timeString = formatUtcTimestampForDisplay(utcTimestamp)
+
+        val dayString = when {
+            android.text.format.DateUtils.isToday(utcTimestamp) -> "Today at"
+            // Check if the timestamp was yesterday
+            android.text.format.DateUtils.isToday(utcTimestamp + android.text.format.DateUtils.DAY_IN_MILLIS) -> "Yesterday at"
+            else -> {
+                val dateFormat = SimpleDateFormat("MMM d 'at'", Locale.getDefault()).apply {
+                    timeZone = TimeZone.getDefault()
+                }
+                dateFormat.format(Date(utcTimestamp))
+            }
+        }
+
+        return "$dayString $timeString"
+    }
+
+    /**
+     * Format current time for display using user preferences
+     */
+    fun formatCurrentTimeForDisplay(): String {
+        return formatUtcTimestampForDisplay(System.currentTimeMillis())
+    }
+
+    /**
+     * Format a time range from UTC timestamps
+     * @param startUtcTimestamp Start time in UTC milliseconds
+     * @param endUtcTimestamp End time in UTC milliseconds
+     * @return Formatted range like "2 PM - 4 PM" or "14:00 - 16:00"
+     */
+    fun formatTimeRange(startUtcTimestamp: Long, endUtcTimestamp: Long): String {
+        val config = loadConfig()
+        val pattern = when (config.timeFormat) {
+            TimeFormat.H24 -> "HH:00"
+            else -> "h a"
+        }
+
+        val startTime = formatUtcTimestampForDisplay(startUtcTimestamp, pattern)
+        val endTime = formatUtcTimestampForDisplay(endUtcTimestamp, pattern)
+
+        return "$startTime - $endTime"
+    }
+
+    // ========== EXISTING CONFIG FUNCTIONS (UNCHANGED) ==========
 
     // Load config from JSON file, create default if not exists
     fun loadConfig(): Config {
@@ -239,47 +352,6 @@ class ConfigManager(private val context: Context) {
         } catch (e: Exception) {
             e.printStackTrace()
             false
-        }
-    }
-
-    /**
-     * Formats a UTC-based hour ID (like "2023111522") into a displayable hour string
-     * respecting the user's 12/24h preference and current time zone.
-     *
-     * @param hourId The UTC hour ID string (e.g., "2023111522").
-     * @return The formatted hour string (e.g., "5 PM" or "17:00"), or "N/A" if input is invalid.
-     */
-    fun formatHourIdForDisplay(hourId: String): String {
-        if (hourId.length != 10) { // Basic validation for yyyyMMddHH
-            return "N/A"
-        }
-        try {
-            // 1. Create a parser that interprets the ID string as UTC
-            val utcIdParser = SimpleDateFormat("yyyyMMddHH", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }
-
-            // 2. Parse the UTC ID to get a specific point in time
-            val date = utcIdParser.parse(hourId) ?: return "N/A"
-
-            // 3. Determine the correct display format based on user settings
-            val userTimeFormat = loadConfig().timeFormat
-            val displayPattern = when (userTimeFormat) {
-                TimeFormat.H24 -> "HH:00" // 24-hour format (e.g., 14:00)
-                else -> "h a" // 12-hour format (e.g., 2 PM) for H12 or SYSTEM_DEFAULT
-            }
-
-            // 4. Create a formatter that uses the device's current time zone
-            val displayFormatter = SimpleDateFormat(displayPattern, Locale.getDefault()).apply {
-                timeZone = TimeZone.getDefault() // Convert to local time for display
-            }
-
-            // 5. Format the date for display
-            return displayFormatter.format(date)
-
-        } catch (e: Exception) {
-            e.printStackTrace()
-            return "N/A"
         }
     }
 }
