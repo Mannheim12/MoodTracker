@@ -135,6 +135,19 @@ fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
                     .padding(horizontal = 0.dp, vertical = 6.dp)
             )
         }
+
+        // Asleep button below N/A
+        val asleepMood = Constants.DEFAULT_MOODS.find { it.name == "Asleep" }
+        if (asleepMood != null) {
+            MoodButton(
+                mood = asleepMood,
+                onMoodClick = onMoodClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(64.dp)  // Half height
+                    .padding(horizontal = 0.dp, vertical = 6.dp)
+            )
+        }
     }
 }
 
