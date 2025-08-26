@@ -10,7 +10,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.moodtracker.model.MoodEntry
 
-@Database(entities = [MoodEntry::class], version = 1) // Add exportSchema = false if not providing schemas
+@Database(entities = [MoodEntry::class], version = 1, exportSchema = true)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun moodEntryDao(): MoodEntryDao
 
@@ -52,9 +52,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "mood_tracker_database"
                 )
-                    // If you're not providing migration paths for schema changes,
-                    // you might need .fallbackToDestructiveMigration() during development.
-                    // For production, proper migrations are essential.
+                    // No migration needed for a fresh install.
+                    // For a real app update, a migration path would be required.
                     .build()
                 INSTANCE = instance
                 instance

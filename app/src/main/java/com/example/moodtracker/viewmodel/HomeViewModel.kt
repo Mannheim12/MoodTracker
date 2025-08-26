@@ -33,6 +33,7 @@ import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.Date
+import java.util.TimeZone
 
 data class TrackingStatusUiState(
     val isLoading: Boolean = true,
@@ -123,13 +124,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // For time formatting, considering user's preference
     private val userTimeFormat: String by lazy { configManager.loadConfig().timeFormat }
-    private val displayHourFormat: SimpleDateFormat by lazy {
-        when (userTimeFormat) {
-            ConfigManager.TimeFormat.H24 -> SimpleDateFormat("HH:00", Locale.getDefault())
-            else -> SimpleDateFormat("h a", Locale.getDefault()) // Default to 12h with AM/PM
-        }
+    private val moodIdHourFormat = SimpleDateFormat("yyyyMMddHH", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
     }
-    private val moodIdHourFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
+
 
     init {
         viewModelScope.launch {
@@ -216,8 +214,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         if (hourId.length != 10) return "Invalid time"
 
         return try {
-            val inputFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
-            val date = inputFormat.parse(hourId) ?: return "Invalid date"
+            val date = moodIdHourFormat.parse(hourId) ?: return "Invalid date"
 
             val dayString = when {
                 android.text.format.DateUtils.isToday(date.time) -> "Today at"
@@ -413,15 +410,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private fun createDisplayEntry(startEntry: MoodEntry, endEntry: MoodEntry): DisplayMoodEntry {
         val mood = allConfigMoods.find { it.name == startEntry.moodName }
         val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
-        val startTimeCal = Calendar.getInstance().apply { time = moodIdHourFormat.parse(startEntry.id) ?: Date(startEntry.timestamp) }
+
+        val displayTimeZone = try {
+            TimeZone.getTimeZone(startEntry.timeZoneId)
+        } catch (e: Exception) {
+            TimeZone.getDefault() // Fallback to device default if ID is invalid
+        }
+
+        val displayHourFormat = when (userTimeFormat) {
+            ConfigManager.TimeFormat.H24 -> SimpleDateFormat("HH:00", Locale.getDefault())
+            else -> SimpleDateFormat("h a", Locale.getDefault())
+        }.apply {
+            timeZone = displayTimeZone
+        }
+
+        val startTimeCal = Calendar.getInstance(displayTimeZone).apply { timeInMillis = startEntry.timestamp }
 
         val timeRange = if (startEntry.id == endEntry.id) {
             // Single hour entry
-            formatTimeForDisplay(startTimeCal)
+            displayHourFormat.format(startTimeCal.time)
         } else {
             // Range of hours
-            val endTimeCal = Calendar.getInstance().apply { time = moodIdHourFormat.parse(endEntry.id) ?: Date(endEntry.timestamp) }
-            "${formatTimeForDisplay(startTimeCal)} - ${formatTimeForDisplay(endTimeCal)}"
+            val endTimeCal = Calendar.getInstance(displayTimeZone).apply { timeInMillis = endEntry.timestamp }
+            "${displayHourFormat.format(startTimeCal.time)} - ${displayHourFormat.format(endTimeCal.time)}"
         }
 
         return DisplayMoodEntry(
@@ -432,12 +443,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             startHour = startTimeCal.get(Calendar.HOUR_OF_DAY),
             startTimestamp = startEntry.timestamp
         )
-    }
-
-    private fun formatTimeForDisplay(calendar: Calendar, isEndTime: Boolean = false): String {
-        val tempCal = Calendar.getInstance()
-        tempCal.timeInMillis = calendar.timeInMillis
-        return displayHourFormat.format(tempCal.time)
     }
 
     private fun formatNextCheckTime(nextCheckTimestamp: Long): String {

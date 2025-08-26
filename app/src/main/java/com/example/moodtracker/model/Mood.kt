@@ -42,7 +42,8 @@ data class Mood(
 data class MoodEntry(
     @PrimaryKey val id: String,          // YYYYMMDDHH format
     val timestamp: Long,                 // Exact time recorded
-    val moodName: String                 // The selected mood
+    val moodName: String,                // The selected mood
+    val timeZoneId: String               // The time zone ID when the entry was recorded
 )
 
 // Constants for file paths and other settings

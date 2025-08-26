@@ -14,13 +14,16 @@ import kotlinx.coroutines.withContext
 import org.apache.commons.csv.CSVFormat
 import org.apache.commons.csv.CSVPrinter
 import java.util.Calendar
+import java.util.TimeZone
 import kotlin.random.Random
 
 /**
  * Handles reading and writing mood data using Room database and CSV export
  */
 class DataManager(private val context: Context) {
-    private val hourIdFormat = SimpleDateFormat("yyyyMMddHH", Locale.US)
+    private val hourIdFormat = SimpleDateFormat("yyyyMMddHH", Locale.US).apply {
+        timeZone = TimeZone.getTimeZone("UTC")
+    }
     private val fullDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
     private val configManager = ConfigManager(context)
 
@@ -30,7 +33,7 @@ class DataManager(private val context: Context) {
     }
 
     /**
-     * Generate an hour ID for a given timestamp
+     * Generate a UTC-based hour ID for a given timestamp
      * @param timestamp The timestamp to generate an ID for. Default is current time.
      * @return Hour ID in YYYYMMDDHH format
      */
@@ -48,9 +51,10 @@ class DataManager(private val context: Context) {
     suspend fun addMoodEntry(moodName: String, hourId: String? = null, timestamp: Long = System.currentTimeMillis()) = withContext(Dispatchers.IO) {
         // Use provided hour ID or generate from current time
         val id = hourId ?: generateHourId(timestamp)
+        val timeZoneId = TimeZone.getDefault().id
 
         // Create entry and save to database
-        val entry = MoodEntry(id, timestamp, moodName)
+        val entry = MoodEntry(id, timestamp, moodName, timeZoneId)
         database.moodEntryDao().insertOrUpdateEntry(entry)
     }
 
@@ -79,7 +83,7 @@ class DataManager(private val context: Context) {
         // 2. Determine the time window to check.
         val config = configManager.loadConfig()
         val retentionHours = config.missedEntriesRetentionHours
-        val calendar = Calendar.getInstance()
+        val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val endTime = calendar.timeInMillis
         calendar.add(Calendar.HOUR_OF_DAY, -retentionHours)
 
@@ -127,14 +131,14 @@ class DataManager(private val context: Context) {
                     val printer = CSVPrinter(
                         writer,
                         CSVFormat.DEFAULT.builder()
-                            .setHeader("id", "timestamp", "mood")
+                            .setHeader("id", "timestamp", "mood", "timezone")
                             .build()
                     )
 
                     // Print records
                     entries.forEach { entry ->
                         val formattedDate = fullDateFormat.format(Date(entry.timestamp))
-                        printer.printRecord(entry.id, formattedDate, entry.moodName)
+                        printer.printRecord(entry.id, formattedDate, entry.moodName, entry.timeZoneId)
                     }
 
                     printer.flush()
@@ -159,7 +163,7 @@ class DataManager(private val context: Context) {
 
                 // Use Apache Commons CSV for proper CSV parsing
                 val csvParser = CSVFormat.DEFAULT.builder()
-                    .setHeader("id", "timestamp", "mood")
+                    .setHeader("id", "timestamp", "mood", "timezone")
                     .setSkipHeaderRecord(true)
                     .build()
                     .parse(reader)
@@ -168,6 +172,7 @@ class DataManager(private val context: Context) {
                     val id = record.get("id")
                     val timestampStr = record.get("timestamp")
                     val moodName = record.get("mood")
+                    val timeZoneId = record.get("timezone") ?: TimeZone.getDefault().id
 
                     val timestamp = try {
                         fullDateFormat.parse(timestampStr)?.time ?: System.currentTimeMillis()
@@ -176,7 +181,7 @@ class DataManager(private val context: Context) {
                     }
 
                     // Create and save the entry
-                    val entry = MoodEntry(id, timestamp, moodName)
+                    val entry = MoodEntry(id, timestamp, moodName, timeZoneId)
                     database.moodEntryDao().insertOrUpdateEntry(entry)
                 }
 
