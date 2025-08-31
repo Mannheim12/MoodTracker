@@ -26,9 +26,6 @@ class DataManager(private val context: Context) {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    // For CSV import parsing - keep specific format for compatibility
-    private val csvDateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
-
     private val configManager = ConfigManager(context)
 
     // Get the Room database instance
@@ -136,18 +133,13 @@ class DataManager(private val context: Context) {
                     val printer = CSVPrinter(
                         writer,
                         CSVFormat.DEFAULT.builder()
-                            .setHeader("id", "timestamp", "mood", "timezone")
+                            .setHeader("id", "utc_timestamp_millis", "mood", "timezone")
                             .build()
                     )
 
-                    // Print records - use ConfigManager for consistent timezone conversion
+                    // Print records with the raw UTC timestamp
                     entries.forEach { entry ->
-                        // Use ConfigManager for consistent UTC->local conversion in CSV export
-                        val formattedDate = configManager.formatUtcTimestampForDisplay(
-                            entry.timestamp,
-                            "yyyy-MM-dd HH:mm:ss"
-                        )
-                        printer.printRecord(entry.id, formattedDate, entry.moodName, entry.timeZoneId)
+                        printer.printRecord(entry.id, entry.timestamp, entry.moodName, entry.timeZoneId)
                     }
 
                     printer.flush()
@@ -172,23 +164,22 @@ class DataManager(private val context: Context) {
 
                 // Use Apache Commons CSV for proper CSV parsing
                 val csvParser = CSVFormat.DEFAULT.builder()
-                    .setHeader("id", "timestamp", "mood", "timezone")
+                    .setHeader("id", "utc_timestamp_millis", "mood", "timezone")
                     .setSkipHeaderRecord(true)
                     .build()
                     .parse(reader)
 
                 for (record in csvParser) {
                     val id = record.get("id")
-                    val timestampStr = record.get("timestamp")
+                    val timestampStr = record.get("utc_timestamp_millis")
                     val moodName = record.get("mood")
                     val timeZoneId = record.get("timezone") ?: TimeZone.getDefault().id
 
-                    // Parse the CSV timestamp - assume it was exported in local time format
-                    // This maintains compatibility with existing CSV files
+                    // Parse the raw long timestamp from the CSV
                     val timestamp = try {
-                        csvDateFormat.parse(timestampStr)?.time ?: System.currentTimeMillis()
-                    } catch (e: Exception) {
-                        System.currentTimeMillis()
+                        timestampStr.toLong()
+                    } catch (e: NumberFormatException) {
+                        System.currentTimeMillis() // Fallback for malformed data
                     }
 
                     // Create and save the entry
