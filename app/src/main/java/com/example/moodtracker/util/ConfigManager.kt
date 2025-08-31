@@ -354,4 +354,18 @@ class ConfigManager(private val context: Context) {
             false
         }
     }
+
+    /**
+     * Formats a UTC timestamp for use in a filename.
+     * @param utcTimestamp The UTC timestamp in milliseconds.
+     * @return A formatted string in local time, e.g., "2025-08-31-23".
+     */
+    fun formatTimestampForFilename(utcTimestamp: Long): String {
+        val pattern = "yyyy-MM-dd-HH"
+        val formatter = SimpleDateFormat(pattern, Locale.US).apply {
+            // Convert UTC timestamp to the user's local timezone for the filename
+            timeZone = TimeZone.getDefault()
+        }
+        return formatter.format(Date(utcTimestamp))
+    }
 }

@@ -162,4 +162,14 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun snackbarMessageShown() {
         _uiState.update { it.copy(snackbarMessage = null) }
     }
+
+    suspend fun generateDataExportFilename(): String {
+        val mostRecentEntry = dataManager.getMostRecentEntry()
+        return if (mostRecentEntry != null) {
+            val dateString = configManager.formatTimestampForFilename(mostRecentEntry.timestamp)
+            "mood_tracker_data_$dateString.csv"
+        } else {
+            "mood_tracker_data.csv"
+        }
+    }
 }

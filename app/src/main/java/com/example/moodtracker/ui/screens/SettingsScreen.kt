@@ -168,8 +168,8 @@ fun SettingsScreen(
                 if (!isIgnoringOptimizations) {
                     Card(
                         modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp, horizontal = 4.dp)
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp, horizontal = 4.dp)
                     ) {
                         Text(
                             text = "For best results, exclude this app from battery optimization in your phone's settings.",
@@ -248,7 +248,12 @@ fun SettingsScreen(
                     Button(onClick = { importDataLauncher.launch(arrayOf("*/*")) }) { // Or "text/csv"
                         Text("Import Data")
                     }
-                    Button(onClick = { exportDataLauncher.launch("mood_tracker_data.csv") }) {
+                    Button(onClick = {
+                        scope.launch {
+                            val filename = settingsViewModel.generateDataExportFilename()
+                            exportDataLauncher.launch(filename)
+                        }
+                    }) {
                         Text("Export Data")
                     }
                 }
