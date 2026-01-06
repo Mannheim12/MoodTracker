@@ -1,6 +1,8 @@
 package com.example.moodtracker.ui.screens
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -42,23 +44,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.moodtracker.model.MoodEntry
 import com.example.moodtracker.ui.Screen
-import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.viewmodel.DebugInfoUiState
-import com.example.moodtracker.viewmodel.DisplayMoodEntry
 import com.example.moodtracker.viewmodel.HomeViewModel
-import com.example.moodtracker.viewmodel.MissedEntriesUiState
-import com.example.moodtracker.viewmodel.TrackingStatusUiState
-import com.example.moodtracker.viewmodel.TodaysMoodsUiState
 import com.example.moodtracker.viewmodel.MoodDebugInfo
+import com.example.moodtracker.viewmodel.TimelineItem
+import com.example.moodtracker.viewmodel.TimelineItemType
+import com.example.moodtracker.viewmodel.TimelineUiState
+import com.example.moodtracker.viewmodel.TrackingStatusUiState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -67,8 +69,7 @@ fun HomeScreen(
     homeViewModel: HomeViewModel = viewModel()
 ) {
     val trackingStatusState by homeViewModel.trackingStatusUiState.collectAsState()
-    val todaysMoodsState by homeViewModel.todaysMoodsUiState.collectAsState()
-    val missedEntriesState by homeViewModel.missedEntriesUiState.collectAsState()
+    val timelineState by homeViewModel.timelineUiState.collectAsState()
     val debugInfoState by homeViewModel.debugInfoUiState.collectAsState()
 
     // Reload data when the screen becomes visible
@@ -126,13 +127,10 @@ fun HomeScreen(
                 )
             }
             item {
-                MissedEntriesCard(
-                    state = missedEntriesState,
-                    onMissedEntryClick = { hourId -> homeViewModel.onMissedEntryClicked(hourId) }
+                UnifiedTimelineCard(
+                    state = timelineState,
+                    onTimelineItemClick = { hourId -> homeViewModel.onTimelineItemClicked(hourId) }
                 )
-            }
-            item {
-                TodaysMoodsCard(todaysMoodsState)
             }
             // Conditionally display Debug Info Card
             if (debugInfoState.isDebugModeEnabled) {
@@ -188,92 +186,145 @@ fun TrackingStatusCard(state: TrackingStatusUiState) {
 }
 
 @Composable
-fun TodaysMoodsCard(state: TodaysMoodsUiState) {
+fun UnifiedTimelineCard(state: TimelineUiState, onTimelineItemClick: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Today's Moods", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Timeline (Last 48 Hours)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
 
             if (state.isLoading) {
                 Box(modifier = Modifier.fillMaxWidth().height(100.dp), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (state.moods.isEmpty()) {
-                Text(state.message ?: "No moods recorded in the last 24 hours.", style = MaterialTheme.typography.bodyMedium)
+            } else if (state.timelineItems.isEmpty()) {
+                Text(state.message ?: "No moods recorded in the last 48 hours.", style = MaterialTheme.typography.bodyMedium)
             } else {
-                MoodTimeline(moods = state.moods)
+                UnifiedTimeline(items = state.timelineItems, onItemClick = onTimelineItemClick)
             }
         }
     }
 }
 
 @Composable
-fun MoodTimeline(moods: List<DisplayMoodEntry>) {
-    if (moods.isEmpty()) return
+fun UnifiedTimeline(items: List<TimelineItem>, onItemClick: (String) -> Unit) {
+    if (items.isEmpty()) return
 
     val pointRadius = 6.dp
     val lineWidth = 2.dp
 
     Column {
-        moods.forEachIndexed { index, mood ->
+        items.forEachIndexed { index, item ->
+            val isMissed = item.itemType == TimelineItemType.MISSED_ENTRY
+
             Row(
-                verticalAlignment = Alignment.CenterVertically
-                // No padding here to eliminate gaps between timeline segments
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(vertical = if (isMissed) 4.dp else 0.dp)
             ) {
-                // Timeline line and dot - fixed size that matches text height
-                Box(modifier = Modifier.width(40.dp).height(24.dp), contentAlignment = Alignment.Center) {
-                    Canvas(modifier = Modifier.fillMaxSize()) {
-                        // Vertical line
-                        if (moods.size > 1) { // Only draw line if more than one point
-                            val yStart = if (index == 0) center.y else 0f
-                            val yEnd = if (index == moods.size - 1) center.y else size.height
-                            drawLine(
-                                color = Color.LightGray,
-                                start = Offset(center.x, yStart),
-                                end = Offset(center.x, yEnd),
-                                strokeWidth = lineWidth.toPx()
-                            )
-                        }
-                        // Dot
-                        drawCircle(
-                            color = Color(mood.moodColor),
-                            radius = pointRadius.toPx(),
-                            center = center
-                        )
-                        // Outline for dot
-                        drawCircle(
-                            color = Color.DarkGray,
-                            radius = pointRadius.toPx(),
-                            center = center,
-                            style = Stroke(width = 1.dp.toPx())
-                        )
-                    }
-                }
+                TimelineIndicator(
+                    item = item,
+                    index = index,
+                    totalItems = items.size,
+                    pointRadius = pointRadius,
+                    lineWidth = lineWidth
+                )
 
                 Spacer(Modifier.width(8.dp))
 
-                // Fixed-width box for time to ensure alignment
-                Box(
+                Text(
+                    text = item.timeRange,
+                    style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.width(110.dp),
-                    contentAlignment = Alignment.CenterEnd
-                ) {
+                    textAlign = TextAlign.End
+                )
+
+                if (isMissed) {
+                    MissedEntryButton(
+                        onClick = { onItemClick(item.id) },
+                        modifier = Modifier.weight(1f).padding(start = 4.dp)
+                    )
+                } else {
                     Text(
-                        text = mood.timeRange,
-                        style = MaterialTheme.typography.bodyMedium
+                        text = ": ${item.moodName}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.weight(1f)
                     )
                 }
+            }
+        }
+    }
+}
 
-                Text(
-                    text = ": ${mood.moodName}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f)
+@Composable
+fun TimelineIndicator(
+    item: TimelineItem,
+    index: Int,
+    totalItems: Int,
+    pointRadius: Dp,
+    lineWidth: Dp
+) {
+    val isMissed = item.itemType == TimelineItemType.MISSED_ENTRY
+    val height = if (isMissed) 40.dp else 24.dp
+
+    Box(
+        modifier = Modifier.width(40.dp).height(height),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            // Vertical line
+            if (totalItems > 1) {
+                val yStart = if (index == 0) center.y else 0f
+                val yEnd = if (index == totalItems - 1) center.y else size.height
+                drawLine(
+                    color = Color.LightGray,
+                    start = Offset(center.x, yStart),
+                    end = Offset(center.x, yEnd),
+                    strokeWidth = lineWidth.toPx()
+                )
+            }
+
+            // Dot or circle
+            if (isMissed) {
+                drawCircle(
+                    color = Color.Red,
+                    radius = pointRadius.toPx(),
+                    center = center,
+                    style = Stroke(width = 2.dp.toPx())
+                )
+            } else {
+                drawCircle(
+                    color = Color(item.moodColor ?: Color.Gray.toArgb()),
+                    radius = pointRadius.toPx(),
+                    center = center
+                )
+                drawCircle(
+                    color = Color.DarkGray,
+                    radius = pointRadius.toPx(),
+                    center = center,
+                    style = Stroke(width = 1.dp.toPx())
                 )
             }
         }
+    }
+}
+
+@Composable
+fun MissedEntryButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clickable { onClick() }
+            .border(width = 1.dp, color = MaterialTheme.colorScheme.error, shape = MaterialTheme.shapes.small)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = "Tap to fill in",
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.error
+        )
     }
 }
 
@@ -300,38 +351,6 @@ fun QuickActionsCard(isActive: Boolean, onCheckNow: () -> Unit, onToggleTracking
     }
 }
 
-@Composable
-fun MissedEntriesCard(state: MissedEntriesUiState, onMissedEntryClick: (String) -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text("Missed Entries", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(8.dp))
-
-            if (state.isLoading) {
-                CircularProgressIndicator()
-            } else if (state.missedEntries.isEmpty()) {
-                Text(
-                    "No missed entries to show.",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    state.missedEntries.forEach { missedEntry ->
-                        Button(
-                            onClick = { onMissedEntryClick(missedEntry.hourId) },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(missedEntry.displayText)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 fun DebugInfoDisplayCard(
@@ -541,7 +560,7 @@ fun DatabaseViewDialog(entries: List<MoodEntry>, onDismiss: () -> Unit) {
                     // Show raw UTC timestamp for debugging (not converted to local)
                     val utcTimestamp = utcFormatter.format(java.util.Date(entry.timestamp))
                     Text(
-                        text = "${entry.id} | ${entry.moodName} | ${utcTimestamp} UTC | ${entry.timeZoneId}",
+                        text = "${entry.id} | ${entry.moodName} | $utcTimestamp UTC | ${entry.timeZoneId}",
                         fontFamily = FontFamily.Monospace,
                         style = MaterialTheme.typography.bodySmall
                     )

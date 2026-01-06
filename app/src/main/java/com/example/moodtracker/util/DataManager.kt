@@ -83,10 +83,10 @@ class DataManager(private val context: Context) {
 
         // 2. Determine the time window to check.
         val config = configManager.loadConfig()
-        val retentionHours = config.missedEntriesRetentionHours
+        val timelineHours = config.timelineHours
         val calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"))
         val endTime = calendar.timeInMillis
-        calendar.add(Calendar.HOUR_OF_DAY, -retentionHours)
+        calendar.add(Calendar.HOUR_OF_DAY, -timelineHours)
 
         // The start time is the more recent of the two: either the oldest entry or the retention window.
         val startTime = maxOf(calendar.timeInMillis, oldestEntry.timestamp)

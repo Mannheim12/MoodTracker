@@ -40,6 +40,21 @@ data class TrackingStatusUiState(
     val nextCheckMessage: String = "Loading..."
 )
 
+data class TimelineItem(
+    val id: String, // hour ID or composite ID for grouped entries
+    val timeRange: String,
+    val itemType: TimelineItemType,
+    val moodName: String? = null, // null for missed entries
+    val moodColor: Int? = null, // null for missed entries
+    val startTimestamp: Long // For proper chronological sorting
+)
+
+enum class TimelineItemType {
+    MOOD_ENTRY,      // A recorded mood entry (can be grouped)
+    MISSED_ENTRY     // A missing hour that needs to be filled in
+}
+
+// Keep for backward compatibility with debug display
 data class DisplayMoodEntry(
     val id: String, // Can be composite if entries are grouped
     val timeRange: String,
@@ -49,20 +64,10 @@ data class DisplayMoodEntry(
     val startTimestamp: Long // For proper chronological sorting
 )
 
-data class TodaysMoodsUiState(
+data class TimelineUiState(
     val isLoading: Boolean = true,
-    val moods: List<DisplayMoodEntry> = emptyList(),
-    val message: String? = null // e.g., "No moods recorded in the last 24 hours."
-)
-
-data class DisplayMissedEntry(
-    val hourId: String,
-    val displayText: String
-)
-
-data class MissedEntriesUiState(
-    val isLoading: Boolean = true,
-    val missedEntries: List<DisplayMissedEntry> = emptyList()
+    val timelineItems: List<TimelineItem> = emptyList(),
+    val message: String? = null // e.g., "No moods recorded in the last 48 hours."
 )
 
 // New UI State for Debug Information
@@ -112,11 +117,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _trackingStatusUiState = MutableStateFlow(TrackingStatusUiState())
     val trackingStatusUiState: StateFlow<TrackingStatusUiState> = _trackingStatusUiState.asStateFlow()
 
-    private val _todaysMoodsUiState = MutableStateFlow(TodaysMoodsUiState())
-    val todaysMoodsUiState: StateFlow<TodaysMoodsUiState> = _todaysMoodsUiState.asStateFlow()
-
-    private val _missedEntriesUiState = MutableStateFlow(MissedEntriesUiState())
-    val missedEntriesUiState: StateFlow<MissedEntriesUiState> = _missedEntriesUiState.asStateFlow()
+    private val _timelineUiState = MutableStateFlow(TimelineUiState())
+    val timelineUiState: StateFlow<TimelineUiState> = _timelineUiState.asStateFlow()
 
     private val _debugInfoUiState = MutableStateFlow(DebugInfoUiState())
     val debugInfoUiState: StateFlow<DebugInfoUiState> = _debugInfoUiState.asStateFlow()
@@ -131,20 +133,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun loadData() {
         viewModelScope.launch {
             _trackingStatusUiState.update { it.copy(isLoading = true) }
-            _todaysMoodsUiState.update { it.copy(isLoading = true) }
-            _missedEntriesUiState.update { it.copy(isLoading = true) }
+            _timelineUiState.update { it.copy(isLoading = true) }
 
             // Load and process config information
             val currentConfig = configManager.loadConfig()
 
             fetchTrackingStatus()
-            fetchTodaysMoods()
-            fetchMissedEntries()
+            fetchTimeline()
             fetchDebugInfo(currentConfig) // Pass the already loaded config
 
             _trackingStatusUiState.update { it.copy(isLoading = false) }
-            _todaysMoodsUiState.update { it.copy(isLoading = false) }
-            _missedEntriesUiState.update { it.copy(isLoading = false) }
+            _timelineUiState.update { it.copy(isLoading = false) }
         }
     }
 
@@ -165,45 +164,116 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private suspend fun fetchTodaysMoods() {
+    private suspend fun fetchTimeline() {
+        val config = configManager.loadConfig()
         val calendar = Calendar.getInstance()
-        calendar.add(Calendar.HOUR_OF_DAY, -24)
+        calendar.add(Calendar.HOUR_OF_DAY, -config.timelineHours)
         val sinceTimestamp = calendar.timeInMillis
 
+        // Fetch mood entries
         val rawEntries = dataManager.getMoodEntriesSince(sinceTimestamp)
 
-        if (rawEntries.isEmpty()) {
-            _todaysMoodsUiState.update {
-                it.copy(moods = emptyList(), message = "No moods recorded in the last 24 hours.", isLoading = false) //TODO make this message change based on the config
+        // Fetch missed entry hour IDs
+        val missedHourIds = dataManager.getMissedEntryHourIds()
+
+        // Create a map of hour IDs to mood entries for quick lookup
+        val entriesByHourId = rawEntries.groupBy { it.id }
+
+        // Generate all expected hour IDs in the timeline range
+        val expectedHourIds = mutableListOf<String>()
+        val tempCalendar = Calendar.getInstance()
+        tempCalendar.timeInMillis = sinceTimestamp
+        val now = System.currentTimeMillis()
+
+        while (tempCalendar.timeInMillis < now) {
+            expectedHourIds.add(dataManager.generateHourId(tempCalendar.timeInMillis))
+            tempCalendar.add(Calendar.HOUR_OF_DAY, 1)
+        }
+
+        // Build timeline items - combine moods and missed entries
+        val timelineItems = mutableListOf<TimelineItem>()
+        var i = 0
+
+        while (i < expectedHourIds.size) {
+            val hourId = expectedHourIds[i]
+            val entries = entriesByHourId[hourId]
+
+            if (entries != null && entries.isNotEmpty()) {
+                // We have a mood entry - group consecutive same moods
+                val firstEntry = entries.first()
+                val moodName = firstEntry.moodName
+                var endIndex = i
+
+                // Look ahead to group consecutive hours with same mood
+                while (endIndex + 1 < expectedHourIds.size) {
+                    val nextHourId = expectedHourIds[endIndex + 1]
+                    val nextEntries = entriesByHourId[nextHourId]
+                    if (nextEntries != null && nextEntries.isNotEmpty() && nextEntries.first().moodName == moodName) {
+                        endIndex++
+                    } else {
+                        break
+                    }
+                }
+
+                val lastEntry = entriesByHourId[expectedHourIds[endIndex]]?.first() ?: firstEntry
+                val mood = allConfigMoods.find { it.name == moodName }
+                val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
+
+                // Format time range
+                val timeRange = if (i == endIndex) {
+                    configManager.formatHourIdForDisplay(hourId)
+                } else {
+                    val startDisplay = configManager.formatHourIdForDisplay(hourId)
+                    val endDisplay = configManager.formatHourIdForDisplay(expectedHourIds[endIndex])
+                    "$startDisplay - $endDisplay"
+                }
+
+                val timestamp = configManager.convertUtcHourIdToTimestamp(hourId) ?: firstEntry.timestamp
+
+                timelineItems.add(
+                    TimelineItem(
+                        id = hourId,
+                        timeRange = timeRange,
+                        itemType = TimelineItemType.MOOD_ENTRY,
+                        moodName = moodName,
+                        moodColor = moodColor,
+                        startTimestamp = timestamp
+                    )
+                )
+
+                i = endIndex + 1
+            } else if (hourId in missedHourIds) {
+                // This is a missed entry
+                val timeRange = configManager.formatHourIdForDisplay(hourId)
+                val timestamp = configManager.convertUtcHourIdToTimestamp(hourId) ?: System.currentTimeMillis()
+
+                timelineItems.add(
+                    TimelineItem(
+                        id = hourId,
+                        timeRange = timeRange,
+                        itemType = TimelineItemType.MISSED_ENTRY,
+                        startTimestamp = timestamp
+                    )
+                )
+                i++
+            } else {
+                // Hour outside tracking or before first entry
+                i++
             }
-            return
         }
 
-        val displayEntries = processMoodEntriesForDisplay(rawEntries)
-        _todaysMoodsUiState.update {
-            it.copy(moods = displayEntries, message = null, isLoading = false)
-        }
-    }
+        // Sort timeline by timestamp descending (most recent first)
+        val sortedItems = timelineItems.sortedByDescending { it.startTimestamp }
 
-    private suspend fun fetchMissedEntries() {
-        val missedIds = dataManager.getMissedEntryHourIds()
-        val displayEntries = missedIds.map { hourId ->
-            DisplayMissedEntry(
-                hourId = hourId,
-                displayText = formatMissedEntryIdForDisplay(hourId)
-            )
+        if (sortedItems.isEmpty()) {
+            _timelineUiState.update {
+                it.copy(timelineItems = emptyList(), message = "No moods recorded in the last ${config.timelineHours} hours.", isLoading = false)
+            }
+        } else {
+            _timelineUiState.update {
+                it.copy(timelineItems = sortedItems, message = null, isLoading = false)
+            }
         }
-        _missedEntriesUiState.update {
-            it.copy(missedEntries = displayEntries, isLoading = false)
-        }
-    }
-
-    /**
-     * Formats a missed entry hour ID into a user-friendly string like "Today at 5 PM".
-     * Now uses ConfigManager for all time formatting.
-     */
-    private fun formatMissedEntryIdForDisplay(hourId: String): String {
-        return configManager.formatHourIdForDisplay(hourId, includeDate = true)
     }
 
     private fun fetchDebugInfo(config: ConfigManager.Config) {
@@ -358,65 +428,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun processMoodEntriesForDisplay(entries: List<MoodEntry>): List<DisplayMoodEntry> {
-        if (entries.isEmpty()) return emptyList()
-
-        val displayEntries = mutableListOf<DisplayMoodEntry>()
-        var groupStartEntry = entries.first()
-
-        for (i in 1 until entries.size) {
-            val currentEntry = entries[i]
-            val prevEntry = entries[i - 1]
-
-            // A group ends if the mood name changes
-            if (currentEntry.moodName != groupStartEntry.moodName) {
-                displayEntries.add(createDisplayEntry(groupStartEntry, prevEntry))
-                groupStartEntry = currentEntry
-            }
-        }
-
-        // Add the final group
-        displayEntries.add(createDisplayEntry(groupStartEntry, entries.last()))
-
-        return displayEntries.sortedByDescending { it.id }
-    }
-
-    private fun createDisplayEntry(startEntry: MoodEntry, endEntry: MoodEntry): DisplayMoodEntry {
-        val mood = allConfigMoods.find { it.name == startEntry.moodName }
-        val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
-
-        // Use hourIDs (not timestamps) for consistent hour slot display like missed entries
-        val timeRange = if (startEntry.id == endEntry.id) {
-            // Single hour entry - show the hour slot this entry represents
-            configManager.formatHourIdForDisplay(startEntry.id)
-        } else {
-            // Range of hours - show from start hourID to end hourID
-            val startHourDisplay = configManager.formatHourIdForDisplay(startEntry.id)
-            val endHourDisplay = configManager.formatHourIdForDisplay(endEntry.id)
-            "$startHourDisplay - $endHourDisplay"
-        }
-
-        // Extract start hour for backward compatibility using hourID (not timestamp)
-        val startHourTimestamp = configManager.convertUtcHourIdToTimestamp(startEntry.id)
-        val startHour = if (startHourTimestamp != null) {
-            val calendar = Calendar.getInstance().apply {
-                timeInMillis = startHourTimestamp
-            }
-            calendar.get(Calendar.HOUR_OF_DAY)
-        } else {
-            0 // Fallback if hourID is invalid
-        }
-
-        return DisplayMoodEntry(
-            id = startEntry.id,
-            timeRange = timeRange,
-            moodName = startEntry.moodName,
-            moodColor = moodColor,
-            startHour = startHour,
-            startTimestamp = startEntry.timestamp
-        )
-    }
-
     private fun formatNextCheckTime(nextCheckTimestamp: Long): String {
         val now = System.currentTimeMillis()
         val diffMillis = nextCheckTimestamp - now
@@ -449,7 +460,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { fetchTrackingStatus() }
     }
 
-    fun onMissedEntryClicked(hourId: String) {
+    fun onTimelineItemClicked(hourId: String) {
         val context = getApplication<Application>().applicationContext
         val intent = Intent(context, ComposeMoodSelectionActivity::class.java).apply {
             putExtra(ComposeMoodSelectionActivity.EXTRA_HOUR_ID, hourId)

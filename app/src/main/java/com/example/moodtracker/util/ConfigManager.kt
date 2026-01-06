@@ -4,11 +4,10 @@ import android.content.Context
 import android.net.Uri
 import com.example.moodtracker.model.Constants
 import com.example.moodtracker.model.Mood
-import java.io.File
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import java.io.File
 import java.text.SimpleDateFormat
-import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -36,10 +35,9 @@ class ConfigManager(private val context: Context) {
 
         // Data Management
         val autoExportFrequency: String = AutoExportFrequency.OFF, // Default to off
-        val missedEntriesRetentionHours: Int = 48, // How long to show missed entries //TODO: implement this config in settings
 
         // Appearance
-        val timelineHours: Int = 24, // How many hours to show in the timeline //TODO: implement this config in settings
+        val timelineHours: Int = 48, // How many hours to show in the timeline (includes missed entries)
         val timeFormat: String = TimeFormat.SYSTEM_DEFAULT, // Could be "12h", "24h", or "system"
         val appTheme: String = AppTheme.SYSTEM, // "light", "dark", "system"
 
