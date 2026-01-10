@@ -31,6 +31,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -51,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -75,6 +77,7 @@ fun SettingsScreen(
     var showMinIntervalDialog by rememberSaveable { mutableStateOf(false) }
     var showMaxIntervalDialog by rememberSaveable { mutableStateOf(false) }
     var showAutoExportDialog by rememberSaveable { mutableStateOf(false) }
+    var showTimelineHoursDialog by rememberSaveable { mutableStateOf(false) }
     var showTimeFormatDialog by rememberSaveable { mutableStateOf(false) }
     var showThemeDialog by rememberSaveable { mutableStateOf(false) }
     var showResetConfigDialog by rememberSaveable { mutableStateOf(false) }
@@ -279,6 +282,13 @@ fun SettingsScreen(
             item { SettingsSectionHeader("Appearance") }
             item {
                 SettingsItem(
+                    title = "Timeline Hours",
+                    subtitle = "${uiState.timelineHours} hours",
+                    onClick = { showTimelineHoursDialog = true }
+                )
+            }
+            item {
+                SettingsItem(
                     title = "Time Format",
                     subtitle = formatTimeFormat(uiState.timeFormat),
                     onClick = { showTimeFormatDialog = true }
@@ -334,6 +344,22 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showTimelineHoursDialog) {
+        SliderPickerDialog(
+            title = "Timeline Hours (12-96)",
+            currentValue = uiState.timelineHours,
+            minValue = 12,
+            maxValue = 96,
+            step = 12,
+            onDismiss = { showTimelineHoursDialog = false },
+            onConfirm = { newValue ->
+                settingsViewModel.updateTimelineHours(newValue)
+                showTimelineHoursDialog = false
+            }
+        )
+    }
+
     if (showAutoExportDialog) {
         SingleChoiceDialog(
             title = "Auto-export Frequency",
@@ -524,6 +550,54 @@ fun NumberPickerDialog(
                 },
                 enabled = isValidInput // Enable button only if input is valid
             ) { Text("Confirm") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun SliderPickerDialog(
+    title: String,
+    currentValue: Int,
+    minValue: Int,
+    maxValue: Int,
+    step: Int,
+    onDismiss: () -> Unit,
+    onConfirm: (Int) -> Unit
+) {
+    var selectedValue by rememberSaveable { mutableStateOf(currentValue) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    text = "$selectedValue hours",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(vertical = 16.dp)
+                )
+                Slider(
+                    value = selectedValue.toFloat(),
+                    onValueChange = { selectedValue = (it / step).toInt() * step },
+                    valueRange = minValue.toFloat()..maxValue.toFloat(),
+                    steps = ((maxValue - minValue) / step) - 1,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("$minValue", style = MaterialTheme.typography.bodySmall)
+                    Text("$maxValue", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        },
+        confirmButton = {
+            Button(onClick = { onConfirm(selectedValue) }) { Text("Confirm") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }

@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
@@ -138,6 +140,7 @@ fun HomeScreen(
             item {
                 UnifiedTimelineCard(
                     state = timelineState,
+                    timelineHours = timelineState.timelineHours,
                     onTimelineItemClick = { hourId -> homeViewModel.onTimelineItemClicked(hourId) }
                 )
             }
@@ -195,13 +198,13 @@ fun TrackingStatusCard(state: TrackingStatusUiState) {
 }
 
 @Composable
-fun UnifiedTimelineCard(state: TimelineUiState, onTimelineItemClick: (String) -> Unit) {
+fun UnifiedTimelineCard(state: TimelineUiState, timelineHours: Int, onTimelineItemClick: (String) -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Timeline (Last 48 Hours)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text("Timeline (Last $timelineHours Hours)", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(16.dp))
 
             if (state.isLoading) {
@@ -209,7 +212,7 @@ fun UnifiedTimelineCard(state: TimelineUiState, onTimelineItemClick: (String) ->
                     CircularProgressIndicator()
                 }
             } else if (state.timelineItems.isEmpty()) {
-                Text(state.message ?: "No moods recorded in the last 48 hours.", style = MaterialTheme.typography.bodyMedium)
+                Text(state.message ?: "No moods recorded in the last $timelineHours hours.", style = MaterialTheme.typography.bodyMedium)
             } else {
                 UnifiedTimeline(items = state.timelineItems, onItemClick = onTimelineItemClick)
             }
@@ -224,13 +227,96 @@ fun UnifiedTimeline(items: List<TimelineItem>, onItemClick: (String) -> Unit) {
     val pointRadius = 6.dp
     val lineWidth = 2.dp
 
+    // Helper function to get day of week from timestamp
+    fun getDayOfWeek(timestamp: Long): String {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.timeInMillis = timestamp
+        val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+        return when (dayOfWeek) {
+            java.util.Calendar.SUNDAY -> "Sunday"
+            java.util.Calendar.MONDAY -> "Monday"
+            java.util.Calendar.TUESDAY -> "Tuesday"
+            java.util.Calendar.WEDNESDAY -> "Wednesday"
+            java.util.Calendar.THURSDAY -> "Thursday"
+            java.util.Calendar.FRIDAY -> "Friday"
+            java.util.Calendar.SATURDAY -> "Saturday"
+            else -> ""
+        }
+    }
+
     Column {
+        // Add current day bar at the top
+        if (items.isNotEmpty()) {
+            val firstItem = items.first()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                )
+                Text(
+                    text = getDayOfWeek(firstItem.startTimestamp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f),
+                    thickness = 1.dp,
+                    color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                )
+            }
+        }
+
         items.forEachIndexed { index, item ->
             val isMissed = item.itemType == TimelineItemType.MISSED_ENTRY
 
+            // Add day separator if this is a new day
+            if (index > 0) {
+                val prevItem = items[index - 1]
+                val prevCalendar = java.util.Calendar.getInstance().apply { timeInMillis = prevItem.startTimestamp }
+                val currCalendar = java.util.Calendar.getInstance().apply { timeInMillis = item.startTimestamp }
+
+                // Check if day changed
+                if (prevCalendar.get(java.util.Calendar.DAY_OF_YEAR) != currCalendar.get(java.util.Calendar.DAY_OF_YEAR) ||
+                    prevCalendar.get(java.util.Calendar.YEAR) != currCalendar.get(java.util.Calendar.YEAR)) {
+
+                    // Day separator
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                        Text(
+                            text = getDayOfWeek(item.startTimestamp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
+                        HorizontalDivider(
+                            modifier = Modifier.weight(1f),
+                            thickness = 1.dp,
+                            color = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                        )
+                    }
+                }
+            }
+
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(vertical = if (isMissed) 4.dp else 0.dp)
+                // No vertical padding - spacing is handled by TimelineIndicator height
+                modifier = Modifier
             ) {
                 TimelineIndicator(
                     item = item,
@@ -276,6 +362,7 @@ fun TimelineIndicator(
     lineWidth: Dp
 ) {
     val isMissed = item.itemType == TimelineItemType.MISSED_ENTRY
+    // Different heights: missed entries are taller for better touch targets
     val height = if (isMissed) 40.dp else 24.dp
 
     Box(
@@ -283,7 +370,7 @@ fun TimelineIndicator(
         contentAlignment = Alignment.Center
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
-            // Vertical line
+            // Continuous vertical line - always draw full height except for first and last items
             if (totalItems > 1) {
                 val yStart = if (index == 0) center.y else 0f
                 val yEnd = if (index == totalItems - 1) center.y else size.height

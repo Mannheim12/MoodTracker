@@ -19,6 +19,7 @@ data class SettingsUiState(
     // autoSleepStartHour: Int? = null, // Will add later
     // autoSleepEndHour: Int? = null,   // Will add later
     val autoExportFrequency: String = ConfigManager.Config().autoExportFrequency,
+    val timelineHours: Int = ConfigManager.Config().timelineHours,
     val timeFormat: String = ConfigManager.Config().timeFormat,
     val appTheme: String = ConfigManager.Config().appTheme,
     val debugModeEnabled: Boolean = ConfigManager.Config().debugModeEnabled,
@@ -44,6 +45,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 minIntervalMinutes = currentConfig.minIntervalMinutes,
                 maxIntervalMinutes = currentConfig.maxIntervalMinutes,
                 autoExportFrequency = currentConfig.autoExportFrequency,
+                timelineHours = currentConfig.timelineHours,
                 timeFormat = currentConfig.timeFormat,
                 appTheme = currentConfig.appTheme,
                 debugModeEnabled = currentConfig.debugModeEnabled
@@ -58,6 +60,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 minIntervalMinutes = newConfig.minIntervalMinutes,
                 maxIntervalMinutes = newConfig.maxIntervalMinutes,
                 autoExportFrequency = newConfig.autoExportFrequency,
+                timelineHours = newConfig.timelineHours,
                 timeFormat = newConfig.timeFormat,
                 appTheme = newConfig.appTheme,
                 debugModeEnabled = newConfig.debugModeEnabled
@@ -97,6 +100,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateDebugMode(enabled: Boolean) {
         val currentConfig = configManager.loadConfig()
         saveAndUpdateState(currentConfig.copy(debugModeEnabled = enabled))
+    }
+
+    fun updateTimelineHours(hours: Int) {
+        val currentConfig = configManager.loadConfig()
+        saveAndUpdateState(currentConfig.copy(timelineHours = hours))
     }
 
     fun exportConfig(uri: Uri, onResult: (Boolean, String) -> Unit) {

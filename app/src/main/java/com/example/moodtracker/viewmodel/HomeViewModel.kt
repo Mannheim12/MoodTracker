@@ -67,7 +67,8 @@ data class DisplayMoodEntry(
 data class TimelineUiState(
     val isLoading: Boolean = true,
     val timelineItems: List<TimelineItem> = emptyList(),
-    val message: String? = null // e.g., "No moods recorded in the last 48 hours."
+    val message: String? = null, // e.g., "No moods recorded in the last 48 hours."
+    val timelineHours: Int = 48 // Current timeline hours setting
 )
 
 // New UI State for Debug Information
@@ -266,11 +267,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         if (sortedItems.isEmpty()) {
             _timelineUiState.update {
-                it.copy(timelineItems = emptyList(), message = "No moods recorded in the last ${config.timelineHours} hours.", isLoading = false)
+                it.copy(timelineItems = emptyList(), message = "No moods recorded in the last ${config.timelineHours} hours.", isLoading = false, timelineHours = config.timelineHours)
             }
         } else {
             _timelineUiState.update {
-                it.copy(timelineItems = sortedItems, message = null, isLoading = false)
+                it.copy(timelineItems = sortedItems, message = null, isLoading = false, timelineHours = config.timelineHours)
             }
         }
     }
