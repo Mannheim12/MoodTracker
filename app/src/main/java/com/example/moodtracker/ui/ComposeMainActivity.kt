@@ -27,6 +27,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.moodtracker.theme.MoodTrackerTheme
+import com.example.moodtracker.ui.screens.AnalyticsScreen
 import com.example.moodtracker.ui.screens.HomeScreen
 import com.example.moodtracker.ui.screens.SettingsScreen
 import com.example.moodtracker.util.ConfigManager
@@ -96,6 +97,35 @@ fun MoodTrackerApp() {
                 HomeScreen(navController = navController)
             }
             composable(
+                route = Screen.Analytics.route,
+                enterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(300)
+                    )
+                },
+                exitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(300)
+                    )
+                },
+                popEnterTransition = {
+                    slideIntoContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Up,
+                        animationSpec = tween(300)
+                    )
+                },
+                popExitTransition = {
+                    slideOutOfContainer(
+                        towards = AnimatedContentTransitionScope.SlideDirection.Down,
+                        animationSpec = tween(300)
+                    )
+                }
+            ) {
+                AnalyticsScreen(navController = navController)
+            }
+            composable(
                 route = Screen.Settings.route,
                 enterTransition = {
                     slideIntoContainer(
@@ -124,8 +154,6 @@ fun MoodTrackerApp() {
             ) {
                 SettingsScreen(navController = navController)
             }
-            // AnalyticsScreen can be added here if needed
-            // composable(Screen.Analytics.route) { AnalyticsScreen() }
         }
     }
 }
@@ -133,5 +161,5 @@ fun MoodTrackerApp() {
 sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Settings : Screen("settings")
-    // data object Analytics : Screen("analytics") // Example for future screen
+    data object Analytics : Screen("analytics")
 }

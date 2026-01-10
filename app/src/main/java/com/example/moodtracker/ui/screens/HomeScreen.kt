@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Insights
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -99,6 +100,13 @@ fun HomeScreen(
                     containerColor = MaterialTheme.colorScheme.primary
                 ),
                 actions = {
+                    IconButton(onClick = { navController.navigate(Screen.Analytics.route) }) {
+                        Icon(
+                            imageVector = Icons.Filled.Insights,
+                            contentDescription = "Analytics",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
                     IconButton(onClick = { navController.navigate(Screen.Settings.route) }) {
                         Icon(
                             imageVector = Icons.Filled.Settings,
