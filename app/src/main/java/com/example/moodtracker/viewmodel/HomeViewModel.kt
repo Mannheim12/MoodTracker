@@ -198,7 +198,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             val hourId = expectedHourIds[i]
             val entries = entriesByHourId[hourId]
 
-            if (entries != null && entries.isNotEmpty()) {
+            if (!entries.isNullOrEmpty()) {
                 // We have a mood entry - group consecutive same moods
                 val firstEntry = entries.first()
                 val moodName = firstEntry.moodName
@@ -208,14 +208,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 while (endIndex + 1 < expectedHourIds.size) {
                     val nextHourId = expectedHourIds[endIndex + 1]
                     val nextEntries = entriesByHourId[nextHourId]
-                    if (nextEntries != null && nextEntries.isNotEmpty() && nextEntries.first().moodName == moodName) {
+                    if (!nextEntries.isNullOrEmpty() && nextEntries.first().moodName == moodName) {
                         endIndex++
                     } else {
                         break
                     }
                 }
 
-                val lastEntry = entriesByHourId[expectedHourIds[endIndex]]?.first() ?: firstEntry
                 val mood = allConfigMoods.find { it.name == moodName }
                 val moodColor = mood?.getColor() ?: Color.Gray.toArgb()
 

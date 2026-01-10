@@ -85,7 +85,7 @@ class ConfigManager(private val context: Context) {
      * Core function: Convert UTC timestamp to local time formatted string
      * All other time formatting should build on this
      */
-    fun formatUtcTimestampForDisplay(utcTimestamp: Long, pattern: String? = null): String {
+    private fun formatUtcTimestampForDisplay(utcTimestamp: Long, pattern: String? = null): String {
         val config = loadConfig()
         val displayPattern = pattern ?: when (config.timeFormat) {
             TimeFormat.H24 -> "HH:mm"
@@ -139,7 +139,7 @@ class ConfigManager(private val context: Context) {
     /**
      * Format timestamp with relative date context like "Today at 5 PM", "Yesterday at 3 PM"
      */
-    fun formatTimestampWithRelativeDate(utcTimestamp: Long): String {
+    private fun formatTimestampWithRelativeDate(utcTimestamp: Long): String {
         val timeString = formatUtcTimestampForDisplay(utcTimestamp)
 
         val dayString = when {
@@ -163,27 +163,6 @@ class ConfigManager(private val context: Context) {
     fun formatCurrentTimeForDisplay(): String {
         return formatUtcTimestampForDisplay(System.currentTimeMillis())
     }
-
-    /**
-     * Format a time range from UTC timestamps
-     * @param startUtcTimestamp Start time in UTC milliseconds
-     * @param endUtcTimestamp End time in UTC milliseconds
-     * @return Formatted range like "2 PM - 4 PM" or "14:00 - 16:00"
-     */
-    fun formatTimeRange(startUtcTimestamp: Long, endUtcTimestamp: Long): String {
-        val config = loadConfig()
-        val pattern = when (config.timeFormat) {
-            TimeFormat.H24 -> "HH:00"
-            else -> "h a"
-        }
-
-        val startTime = formatUtcTimestampForDisplay(startUtcTimestamp, pattern)
-        val endTime = formatUtcTimestampForDisplay(endUtcTimestamp, pattern)
-
-        return "$startTime - $endTime"
-    }
-
-    // ========== EXISTING CONFIG FUNCTIONS (UNCHANGED) ==========
 
     // Load config from JSON file, create default if not exists
     fun loadConfig(): Config {

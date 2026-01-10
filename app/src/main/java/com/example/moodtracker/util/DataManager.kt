@@ -60,15 +60,6 @@ class DataManager(private val context: Context) {
     }
 
     /**
-     * Check if a mood entry exists for the specified hour
-     * @param hourId The hour ID to check
-     * @return true if an entry exists, false otherwise
-     */
-    suspend fun hasEntryForHour(hourId: String): Boolean = withContext(Dispatchers.IO) {
-        return@withContext database.moodEntryDao().hasEntryForHour(hourId)
-    }
-
-    /**
      * Finds which hourly entries are missing from the database, starting from the first recorded entry.
      * @return A list of hour ID strings (YYYYMMDDHH) for which no entry exists.
      */
