@@ -37,6 +37,35 @@ class MoodSelectionViewModelFactory(
 }
 
 @Composable
+fun AutoSizeText(
+    text: String,
+    textStyle: TextStyle,
+    modifier: Modifier = Modifier,
+    textAlign: TextAlign = TextAlign.Start,
+    maxLines: Int = 1
+) {
+    var fontSize by remember { mutableStateOf(textStyle.fontSize) }
+    var readyToDraw by remember { mutableStateOf(false) }
+
+    Text(
+        text = text,
+        style = textStyle.copy(fontSize = fontSize),
+        textAlign = textAlign,
+        modifier = modifier,
+        maxLines = maxLines,
+        overflow = TextOverflow.Visible,
+        softWrap = false,
+        onTextLayout = { textLayoutResult ->
+            if (textLayoutResult.hasVisualOverflow && fontSize > 12.sp) {
+                fontSize = (fontSize.value * 0.9f).sp
+            } else {
+                readyToDraw = true
+            }
+        }
+    )
+}
+
+@Composable
 fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit, modifier: Modifier = Modifier) {
     Button(
         onClick = { onMoodClick(mood.name) },
@@ -68,85 +97,109 @@ fun MoodButton(mood: Mood, onMoodClick: (String) -> Unit, modifier: Modifier = M
 
 @Composable
 fun MoodSelectionGrid(moods: List<Mood>, onMoodClick: (String) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        // Create 3x3 grid
-        for (row in 0..2) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceEvenly
-            ) {
-                for (col in 0..2) {
-                    val cellModifier = Modifier
-                        .weight(1f)
-                        .aspectRatio(1f)
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val availableWidth = maxWidth
+        val availableHeight = maxHeight
 
-                    if (row == 2 && col == 0) {
-                        // Horizontal split cell at bottom left
-                        Column(
-                            modifier = cellModifier.padding(2.dp),
-                            verticalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            // Angry button (top)
-                            MoodButton(
-                                mood = moods[6],
-                                onMoodClick = onMoodClick,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .padding(0.dp) // Remove default padding since Column already has it
-                            )
-                            // Fearful button (bottom)
-                            MoodButton(
-                                mood = moods[7],
-                                onMoodClick = onMoodClick,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .fillMaxWidth()
-                                    .padding(0.dp) // Remove default padding since Column already has it
-                            )
-                        }
-                    } else {
-                        // Regular cells - calculate index directly
-                        val moodIndex = if (row < 2) {
-                            row * 3 + col  // Rows 0,1: simple calculation
+        // Calculate optimal cell size:
+        // We need 3 rows of square cells + 2 extra button rows
+        // Extra buttons should be ~50% height of grid cells
+        // Total height = 3*cellHeight + 2*(cellHeight*0.5) = 4*cellHeight
+
+        val cellSizeFromWidth = availableWidth / 3
+        val cellSizeFromHeight = availableHeight / 4
+
+        // Use the smaller constraint to ensure everything fits
+        val cellSize = minOf(cellSizeFromWidth, cellSizeFromHeight)
+        val extraButtonHeight = cellSize * 0.5f
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .wrapContentHeight(),
+            verticalArrangement = Arrangement.Top
+        ) {
+            // Create 3x3 grid
+            for (row in 0..2) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(cellSize),
+                    horizontalArrangement = Arrangement.SpaceEvenly
+                ) {
+                    for (col in 0..2) {
+                        val cellModifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+
+                        if (row == 2 && col == 0) {
+                            // Horizontal split cell at bottom left
+                            Column(
+                                modifier = cellModifier.padding(2.dp),
+                                verticalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                // Angry button (top)
+                                MoodButton(
+                                    mood = moods[6],
+                                    onMoodClick = onMoodClick,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .padding(0.dp)
+                                )
+                                // Fearful button (bottom)
+                                MoodButton(
+                                    mood = moods[7],
+                                    onMoodClick = onMoodClick,
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .fillMaxWidth()
+                                        .padding(0.dp)
+                                )
+                            }
                         } else {
-                            // Row 2: only col 1,2 possible here
-                            col + 7  // col 1 -> 8, col 2 -> 9
+                            // Regular cells - calculate index directly
+                            val moodIndex = if (row < 2) {
+                                row * 3 + col  // Rows 0,1: simple calculation
+                            } else {
+                                // Row 2: only col 1,2 possible here
+                                col + 7  // col 1 -> 8, col 2 -> 9
+                            }
+                            MoodButton(
+                                mood = moods[moodIndex],
+                                onMoodClick = onMoodClick,
+                                modifier = cellModifier
+                            )
                         }
-                        MoodButton(
-                            mood = moods[moodIndex],
-                            onMoodClick = onMoodClick,
-                            modifier = cellModifier
-                        )
                     }
                 }
             }
-        }
 
-        // N/A button below grid
-        val naMood = Constants.DEFAULT_MOODS.find { it.name == "N/A" }
-        if (naMood != null) {
-            MoodButton(
-                mood = naMood,
-                onMoodClick = onMoodClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)  // Half height
-                    .padding(horizontal = 0.dp, vertical = 6.dp)
-            )
-        }
+            // N/A button below grid
+            val naMood = Constants.DEFAULT_MOODS.find { it.name == "N/A" }
+            if (naMood != null) {
+                MoodButton(
+                    mood = naMood,
+                    onMoodClick = onMoodClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(extraButtonHeight)
+                        .padding(horizontal = 0.dp, vertical = 4.dp)
+                )
+            }
 
-        // Asleep button below N/A
-        val asleepMood = Constants.DEFAULT_MOODS.find { it.name == "Asleep" }
-        if (asleepMood != null) {
-            MoodButton(
-                mood = asleepMood,
-                onMoodClick = onMoodClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(64.dp)  // Half height
-                    .padding(horizontal = 0.dp, vertical = 6.dp)
-            )
+            // Asleep button below N/A
+            val asleepMood = Constants.DEFAULT_MOODS.find { it.name == "Asleep" }
+            if (asleepMood != null) {
+                MoodButton(
+                    mood = asleepMood,
+                    onMoodClick = onMoodClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(extraButtonHeight)
+                        .padding(horizontal = 0.dp, vertical = 4.dp)
+                )
+            }
         }
     }
 }
@@ -188,23 +241,35 @@ fun MoodSelectionScreen(
             )
         }
     ) { paddingValues ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top section: Prompt and time text
+            // Calculate responsive padding based on screen width
+            val screenWidth = maxWidth
+            val horizontalPadding = maxOf(8.dp, minOf(24.dp, screenWidth * 0.04f))
+            val verticalPadding = maxOf(4.dp, minOf(12.dp, screenWidth * 0.02f))
+
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(top = 16.dp, bottom = 20.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = horizontalPadding, vertical = verticalPadding),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
+                // Top section: Prompt and time text
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(top = verticalPadding, bottom = verticalPadding)
+                ) {
+                AutoSizeText(
                     text = uiState.promptText,
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                    textStyle = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier
+                        .padding(bottom = 8.dp)
+                        .fillMaxWidth(),
+                    maxLines = 1
                 )
                 Text(
                     text = uiState.timeText,
@@ -219,7 +284,7 @@ fun MoodSelectionScreen(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth(),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.TopCenter
             ) {
                 if (uiState.isLoading) {
                     CircularProgressIndicator(modifier = Modifier.size(48.dp))
@@ -244,15 +309,16 @@ fun MoodSelectionScreen(
                 }
             }
 
-            // Timeout indicator at bottom
-            if (!uiState.isLoading && !uiState.moodRecorded) {
-                Text(
-                    text = "Auto-closes in 60 seconds if no mood selected",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(vertical = 16.dp)
-                )
+                // Timeout indicator at bottom
+                if (!uiState.isLoading && !uiState.moodRecorded) {
+                    Text(
+                        text = "Auto-closes in 60 seconds if no mood selected",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(vertical = verticalPadding)
+                    )
+                }
             }
         }
     }
