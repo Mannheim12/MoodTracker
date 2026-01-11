@@ -104,9 +104,6 @@ class MoodSelectionViewModel(
             _uiState.update { it.copy(moodRecorded = true) }
             moodSelectionTimer?.cancel()
 
-            val context = getApplication<Application>().applicationContext
-            MoodCheckWorker.cancelNotification(context)
-
             try {
                 withContext(Dispatchers.IO) {
                     if (currentHourId.isEmpty()) {

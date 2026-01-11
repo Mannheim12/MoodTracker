@@ -184,6 +184,21 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
 
             // Handle previous notification if not already handled
             withContext(Dispatchers.IO) {
+                // Check if the previous hour was in a sleep window and needs to be auto-recorded as "Asleep"
+                val previousHourId = prefs.getString(PREF_HOURLY_ID, null)
+                if (previousHourId != null) {
+                    // Check if this hour was in a sleep window
+                    val previousTimestamp = configManager.convertUtcHourIdToTimestamp(previousHourId)
+                    if (previousTimestamp != null && configManager.isTimestampInSleepWindow(previousTimestamp)) {
+                        // Check if it wasn't already filled in by the user
+                        val existingEntry = dataManager.getAllEntries().find { it.id == previousHourId }
+                        if (existingEntry == null) {
+                            // Auto-record as "Asleep"
+                            dataManager.addMoodEntry("Asleep", previousHourId, previousTimestamp)
+                        }
+                    }
+                }
+
                 cancelNotification(applicationContext)
             }
 

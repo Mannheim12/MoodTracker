@@ -740,7 +740,7 @@ fun AutoSleepScheduleDialog(
         text = {
             Column {
                 Text(
-                    "Set intervals where missed mood checks are recorded as Asleep",
+                    "Set sleep hours. Notifications not answered during these times will be auto-recorded as Asleep.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp)
