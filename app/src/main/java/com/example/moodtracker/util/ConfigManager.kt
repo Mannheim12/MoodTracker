@@ -385,6 +385,13 @@ class ConfigManager(private val context: Context) {
         val endAbsMinutes = (schedule.endDayOfWeek - 1) * 1440 +
                 schedule.endHour * 60 + schedule.endMinute
 
-        return currentAbsMinutes in startAbsMinutes..<(endAbsMinutes+1)
+        // Handle week wrapping (e.g., Saturday 11 PM -> Sunday 7 AM)
+        return if (endAbsMinutes >= startAbsMinutes) {
+            // Normal case: schedule doesn't wrap the week
+            currentAbsMinutes in startAbsMinutes..<(endAbsMinutes + 1)
+        } else {
+            // Week-wrapping case: check if current time is after start OR before end
+            currentAbsMinutes >= startAbsMinutes || currentAbsMinutes < (endAbsMinutes + 1)
+        }
     }
 }
