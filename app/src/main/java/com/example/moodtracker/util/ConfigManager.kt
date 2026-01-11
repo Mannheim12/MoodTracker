@@ -8,6 +8,7 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
@@ -23,15 +24,23 @@ class ConfigManager(private val context: Context) {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
+    // Sleep schedule data class
+    data class SleepSchedule(
+        val startDayOfWeek: Int,    // 1=Sunday, 2=Monday, ... 7=Saturday (Calendar.DAY_OF_WEEK)
+        val startHour: Int,          // 0-23
+        val startMinute: Int,        // 0-59
+        val endDayOfWeek: Int,       // 1=Sunday, 2=Monday, ... 7=Saturday
+        val endHour: Int,            // 0-23
+        val endMinute: Int           // 0-59
+    )
+
     // Data class for configuration
     data class Config(
         // Mood & Tracking
         val minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES,
         val maxIntervalMinutes: Int = Constants.MAX_INTERVAL_MINUTES,
         val moods: List<Mood> = Constants.DEFAULT_MOODS,
-        // Auto-sleep hours (placeholders, actual implementation will be more complex)
-        val autoSleepStartHour: Int? = null, // 24-hour format
-        val autoSleepEndHour: Int? = null,   // 24-hour format
+        val autoSleepSchedules: List<SleepSchedule> = emptyList(),
 
         // Data Management
         val autoExportFrequency: String = AutoExportFrequency.OFF, // Default to off
@@ -204,8 +213,6 @@ class ConfigManager(private val context: Context) {
             // Extract non-mood fields
             val minInterval = (configMap["minIntervalMinutes"] as? Double)?.toInt() ?: Constants.MIN_INTERVAL_MINUTES
             val maxInterval = (configMap["maxIntervalMinutes"] as? Double)?.toInt() ?: Constants.MAX_INTERVAL_MINUTES
-            val autoSleepStart = (configMap["autoSleepStartHour"] as? Double)?.toInt()
-            val autoSleepEnd = (configMap["autoSleepEndHour"] as? Double)?.toInt()
             val autoExport = configMap["autoExportFrequency"] as? String ?: AutoExportFrequency.OFF
             val timeFormat = configMap["timeFormat"] as? String ?: TimeFormat.SYSTEM_DEFAULT
             val appTheme = configMap["appTheme"] as? String ?: AppTheme.SYSTEM
@@ -216,8 +223,6 @@ class ConfigManager(private val context: Context) {
                 minIntervalMinutes = minInterval,
                 maxIntervalMinutes = maxInterval,
                 moods = Constants.DEFAULT_MOODS, // Use new VAD-based moods
-                autoSleepStartHour = autoSleepStart,
-                autoSleepEndHour = autoSleepEnd,
                 autoExportFrequency = autoExport,
                 timeFormat = timeFormat,
                 appTheme = appTheme,
@@ -344,5 +349,42 @@ class ConfigManager(private val context: Context) {
             timeZone = TimeZone.getDefault()
         }
         return formatter.format(Date(utcTimestamp))
+    }
+
+    /**
+     * Check if a timestamp is within any configured sleep window
+     * @param timestamp The UTC timestamp in milliseconds
+     * @return true if the timestamp falls within any sleep schedule
+     */
+    fun isTimestampInSleepWindow(timestamp: Long): Boolean {
+        val config = loadConfig()
+        if (config.autoSleepSchedules.isEmpty()) return false
+
+        val calendar = Calendar.getInstance().apply {
+            timeInMillis = timestamp
+            timeZone = TimeZone.getDefault()
+        }
+
+        val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val currentMinuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+
+        return config.autoSleepSchedules.any { schedule ->
+            isInSchedule(currentDayOfWeek, currentMinuteOfDay, schedule)
+        }
+    }
+
+    private fun isInSchedule(
+        dayOfWeek: Int,
+        minuteOfDay: Int,
+        schedule: SleepSchedule
+    ): Boolean {
+        // Convert to "minutes since Sunday midnight"
+        val currentAbsMinutes = (dayOfWeek - 1) * 1440 + minuteOfDay
+        val startAbsMinutes = (schedule.startDayOfWeek - 1) * 1440 +
+                schedule.startHour * 60 + schedule.startMinute
+        val endAbsMinutes = (schedule.endDayOfWeek - 1) * 1440 +
+                schedule.endHour * 60 + schedule.endMinute
+
+        return currentAbsMinutes in startAbsMinutes..<endAbsMinutes
     }
 }

@@ -102,8 +102,13 @@ class DataManager(private val context: Context) {
         val existingEntries = database.moodEntryDao().getEntriesByHourIds(expectedHourIds)
         val existingHourIds = existingEntries.map { it.id }.toSet()
 
-        // 6. A missed entry is one that was expected, doesn't exist, and is not currently pending.
-        return@withContext expectedHourIds.filter { it !in existingHourIds && it != pendingHourId }
+        // 6. A missed entry is one that was expected, doesn't exist, is not currently pending,
+        //    and does not fall within an auto-sleep window.
+        return@withContext expectedHourIds.filter { hourId ->
+            val timestamp = configManager.convertUtcHourIdToTimestamp(hourId)
+            val isInSleepWindow = timestamp?.let { configManager.isTimestampInSleepWindow(it) } ?: false
+            hourId !in existingHourIds && hourId != pendingHourId && !isInSleepWindow
+        }
     }
 
     /**

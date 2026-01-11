@@ -93,8 +93,7 @@ data class DebugInfoUiState(
     val timeFormat: String = "",
     val appTheme: String = "",
     val autoExportFrequency: String = "",
-    val autoSleepStartHour: String = "",
-    val autoSleepEndHour: String = "",
+    val autoSleepSchedules: String = "",
     val moods: List<MoodDebugInfo> = emptyList(),
     // Debugging
     val databaseEntriesForDialog: List<MoodEntry>? = null
@@ -399,8 +398,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 else -> config.autoExportFrequency
             }
 
-            val autoSleepStart = config.autoSleepStartHour?.let { "$it:00" } ?: "Not Set"
-            val autoSleepEnd = config.autoSleepEndHour?.let { "$it:00" } ?: "Not Set"
+            val autoSleepSchedules = if (config.autoSleepSchedules.isEmpty()) {
+                "Not Set"
+            } else {
+                "${config.autoSleepSchedules.size} schedule${if (config.autoSleepSchedules.size == 1) "" else "s"}"
+            }
 
             _debugInfoUiState.update {
                 it.copy(
@@ -420,8 +422,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     timeFormat = timeFormatDisplay,
                     appTheme = appThemeDisplay,
                     autoExportFrequency = autoExportDisplay,
-                    autoSleepStartHour = autoSleepStart,
-                    autoSleepEndHour = autoSleepEnd,
+                    autoSleepSchedules = autoSleepSchedules,
                     moods = moodDebugInfoList
                 )
             }

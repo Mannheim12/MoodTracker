@@ -16,8 +16,7 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val minIntervalMinutes: Int = ConfigManager.Config().minIntervalMinutes,
     val maxIntervalMinutes: Int = ConfigManager.Config().maxIntervalMinutes,
-    // autoSleepStartHour: Int? = null, // Will add later
-    // autoSleepEndHour: Int? = null,   // Will add later
+    val autoSleepSchedules: List<ConfigManager.SleepSchedule> = emptyList(),
     val autoExportFrequency: String = ConfigManager.Config().autoExportFrequency,
     val timelineHours: Int = ConfigManager.Config().timelineHours,
     val timeFormat: String = ConfigManager.Config().timeFormat,
@@ -44,6 +43,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 minIntervalMinutes = currentConfig.minIntervalMinutes,
                 maxIntervalMinutes = currentConfig.maxIntervalMinutes,
+                autoSleepSchedules = currentConfig.autoSleepSchedules,
                 autoExportFrequency = currentConfig.autoExportFrequency,
                 timelineHours = currentConfig.timelineHours,
                 timeFormat = currentConfig.timeFormat,
@@ -59,6 +59,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 minIntervalMinutes = newConfig.minIntervalMinutes,
                 maxIntervalMinutes = newConfig.maxIntervalMinutes,
+                autoSleepSchedules = newConfig.autoSleepSchedules,
                 autoExportFrequency = newConfig.autoExportFrequency,
                 timelineHours = newConfig.timelineHours,
                 timeFormat = newConfig.timeFormat,
@@ -105,6 +106,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun updateTimelineHours(hours: Int) {
         val currentConfig = configManager.loadConfig()
         saveAndUpdateState(currentConfig.copy(timelineHours = hours))
+    }
+
+    fun updateAutoSleepSchedules(schedules: List<ConfigManager.SleepSchedule>) {
+        val currentConfig = configManager.loadConfig()
+        saveAndUpdateState(currentConfig.copy(autoSleepSchedules = schedules))
     }
 
     fun exportConfig(uri: Uri, onResult: (Boolean, String) -> Unit) {

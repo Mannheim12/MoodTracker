@@ -525,8 +525,7 @@ fun DebugInfoDisplayCard(
                 DebugRow("Time Format", state.timeFormat)
                 DebugRow("App Theme", state.appTheme)
                 DebugRow("Auto-export", state.autoExportFrequency)
-                DebugRow("Auto-sleep Start", state.autoSleepStartHour)
-                DebugRow("Auto-sleep End", state.autoSleepEndHour)
+                DebugRow("Auto-sleep Schedules", state.autoSleepSchedules)
             }
 
             Spacer(Modifier.height(12.dp))
