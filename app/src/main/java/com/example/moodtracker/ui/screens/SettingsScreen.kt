@@ -62,13 +62,6 @@ import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.Box
-import android.app.TimePickerDialog
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.runtime.mutableIntStateOf
 import java.util.Calendar
 import java.util.Locale
