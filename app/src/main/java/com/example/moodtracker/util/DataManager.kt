@@ -215,6 +215,15 @@ class DataManager(private val context: Context) {
     }
 
     /**
+     * Get a specific mood entry by hour ID
+     * @param hourId The hour ID to look up
+     * @return The mood entry if it exists, null otherwise
+     */
+    suspend fun getEntryByHourId(hourId: String): MoodEntry? = withContext(Dispatchers.IO) {
+        return@withContext database.moodEntryDao().getEntryByHourId(hourId)
+    }
+
+    /**
      * Deletes all mood entries from the database.
      */
     suspend fun resetDatabase() = withContext(Dispatchers.IO) {
