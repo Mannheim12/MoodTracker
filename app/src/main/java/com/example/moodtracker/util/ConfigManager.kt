@@ -385,6 +385,6 @@ class ConfigManager(private val context: Context) {
         val endAbsMinutes = (schedule.endDayOfWeek - 1) * 1440 +
                 schedule.endHour * 60 + schedule.endMinute
 
-        return currentAbsMinutes in startAbsMinutes..<endAbsMinutes
+        return currentAbsMinutes in startAbsMinutes..<(endAbsMinutes+1)
     }
 }
