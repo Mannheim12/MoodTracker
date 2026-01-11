@@ -16,13 +16,13 @@ import kotlinx.coroutines.launch
 data class SettingsUiState(
     val minIntervalMinutes: Int = ConfigManager.Config().minIntervalMinutes,
     val maxIntervalMinutes: Int = ConfigManager.Config().maxIntervalMinutes,
-    val autoSleepSchedules: List<ConfigManager.SleepSchedule> = emptyList(),
+    val autoSleepGrid: Map<String, Boolean> = emptyMap(),
     val autoExportFrequency: String = ConfigManager.Config().autoExportFrequency,
     val timelineHours: Int = ConfigManager.Config().timelineHours,
     val timeFormat: String = ConfigManager.Config().timeFormat,
     val appTheme: String = ConfigManager.Config().appTheme,
     val debugModeEnabled: Boolean = ConfigManager.Config().debugModeEnabled,
-    val snackbarMessage: String? = null // For showing transient messages
+    val snackbarMessage: String? = null
 )
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
@@ -43,7 +43,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 minIntervalMinutes = currentConfig.minIntervalMinutes,
                 maxIntervalMinutes = currentConfig.maxIntervalMinutes,
-                autoSleepSchedules = currentConfig.autoSleepSchedules,
+                autoSleepGrid = currentConfig.autoSleepGrid,
                 autoExportFrequency = currentConfig.autoExportFrequency,
                 timelineHours = currentConfig.timelineHours,
                 timeFormat = currentConfig.timeFormat,
@@ -59,7 +59,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             it.copy(
                 minIntervalMinutes = newConfig.minIntervalMinutes,
                 maxIntervalMinutes = newConfig.maxIntervalMinutes,
-                autoSleepSchedules = newConfig.autoSleepSchedules,
+                autoSleepGrid = newConfig.autoSleepGrid,
                 autoExportFrequency = newConfig.autoExportFrequency,
                 timelineHours = newConfig.timelineHours,
                 timeFormat = newConfig.timeFormat,
@@ -108,9 +108,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         saveAndUpdateState(currentConfig.copy(timelineHours = hours))
     }
 
-    fun updateAutoSleepSchedules(schedules: List<ConfigManager.SleepSchedule>) {
+    fun toggleAutoSleepCell(dayOfWeek: Int, hour: Int) {
         val currentConfig = configManager.loadConfig()
-        saveAndUpdateState(currentConfig.copy(autoSleepSchedules = schedules))
+        val key = "$dayOfWeek-$hour"
+        val newGrid = currentConfig.autoSleepGrid.toMutableMap()
+        newGrid[key] = !(newGrid[key] ?: false)
+        saveAndUpdateState(currentConfig.copy(autoSleepGrid = newGrid))
     }
 
     fun exportConfig(uri: Uri, onResult: (Boolean, String) -> Unit) {

@@ -398,10 +398,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 else -> config.autoExportFrequency
             }
 
-            val autoSleepSchedules = if (config.autoSleepSchedules.isEmpty()) {
+            val enabledSleepHours = config.autoSleepGrid.count { it.value }
+            val autoSleepSchedules = if (enabledSleepHours == 0) {
                 "Not Set"
             } else {
-                "${config.autoSleepSchedules.size} schedule${if (config.autoSleepSchedules.size == 1) "" else "s"}"
+                "$enabledSleepHours hour${if (enabledSleepHours == 1) "" else "s"}"
             }
 
             _debugInfoUiState.update {

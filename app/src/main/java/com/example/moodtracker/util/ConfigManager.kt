@@ -24,23 +24,13 @@ class ConfigManager(private val context: Context) {
         timeZone = TimeZone.getTimeZone("UTC")
     }
 
-    // Sleep schedule data class
-    data class SleepSchedule(
-        val startDayOfWeek: Int,    // 1=Sunday, 2=Monday, ... 7=Saturday (Calendar.DAY_OF_WEEK)
-        val startHour: Int,          // 0-23
-        val startMinute: Int,        // 0-59
-        val endDayOfWeek: Int,       // 1=Sunday, 2=Monday, ... 7=Saturday
-        val endHour: Int,            // 0-23
-        val endMinute: Int           // 0-59
-    )
-
     // Data class for configuration
     data class Config(
         // Mood & Tracking
         val minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES,
         val maxIntervalMinutes: Int = Constants.MAX_INTERVAL_MINUTES,
         val moods: List<Mood> = Constants.DEFAULT_MOODS,
-        val autoSleepSchedules: List<SleepSchedule> = emptyList(),
+        val autoSleepGrid: Map<String, Boolean> = emptyMap(), // Key format: "dayOfWeek-hour" (e.g., "1-23" for Sunday 11 PM)
 
         // Data Management
         val autoExportFrequency: String = AutoExportFrequency.OFF, // Default to off
@@ -352,46 +342,23 @@ class ConfigManager(private val context: Context) {
     }
 
     /**
-     * Check if a timestamp is within any configured sleep window
+     * Check if a UTC timestamp should be auto-recorded as sleep
      * @param timestamp The UTC timestamp in milliseconds
-     * @return true if the timestamp falls within any sleep schedule
+     * @return true if this hour should be marked as asleep
      */
     fun isTimestampInSleepWindow(timestamp: Long): Boolean {
         val config = loadConfig()
-        if (config.autoSleepSchedules.isEmpty()) return false
+        if (config.autoSleepGrid.isEmpty()) return false
 
         val calendar = Calendar.getInstance().apply {
             timeInMillis = timestamp
             timeZone = TimeZone.getDefault()
         }
 
-        val currentDayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-        val currentMinuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val key = "$dayOfWeek-$hour"
 
-        return config.autoSleepSchedules.any { schedule ->
-            isInSchedule(currentDayOfWeek, currentMinuteOfDay, schedule)
-        }
-    }
-
-    private fun isInSchedule(
-        dayOfWeek: Int,
-        minuteOfDay: Int,
-        schedule: SleepSchedule
-    ): Boolean {
-        // Convert to "minutes since Sunday midnight"
-        val currentAbsMinutes = (dayOfWeek - 1) * 1440 + minuteOfDay
-        val startAbsMinutes = (schedule.startDayOfWeek - 1) * 1440 +
-                schedule.startHour * 60 + schedule.startMinute
-        val endAbsMinutes = (schedule.endDayOfWeek - 1) * 1440 +
-                schedule.endHour * 60 + schedule.endMinute
-
-        // Handle week wrapping (e.g., Saturday 11 PM -> Sunday 7 AM)
-        return if (endAbsMinutes >= startAbsMinutes) {
-            // Normal case: schedule doesn't wrap the week
-            currentAbsMinutes in startAbsMinutes..<(endAbsMinutes + 1)
-        } else {
-            // Week-wrapping case: check if current time is after start OR before end
-            currentAbsMinutes >= startAbsMinutes || currentAbsMinutes < (endAbsMinutes + 1)
-        }
+        return config.autoSleepGrid[key] == true
     }
 }

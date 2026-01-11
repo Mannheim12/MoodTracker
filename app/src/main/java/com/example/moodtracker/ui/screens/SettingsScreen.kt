@@ -61,6 +61,7 @@ import androidx.navigation.NavController
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.viewmodel.SettingsViewModel
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.layout.Box
 import android.app.TimePickerDialog
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.filled.Add
@@ -93,7 +94,6 @@ fun SettingsScreen(
     var showResetConfigDialog by rememberSaveable { mutableStateOf(false) }
     var showResetDatabaseDialog by rememberSaveable { mutableStateOf(false) }
     var showAutoSleepDialog by rememberSaveable { mutableStateOf(false) }
-    var showAddSleepScheduleDialog by rememberSaveable { mutableStateOf(false) }
 
     // File Launchers
     val exportConfigLauncher = rememberLauncherForActivityResult(
@@ -222,9 +222,10 @@ fun SettingsScreen(
                 )
             }
             item {
+                val enabledCount = uiState.autoSleepGrid.count { it.value }
                 SettingsItem(
                     title = "Auto-sleep Hours",
-                    subtitle = if (uiState.autoSleepSchedules.isEmpty()) "Not configured" else "${uiState.autoSleepSchedules.size} schedule${if (uiState.autoSleepSchedules.size == 1) "" else "s"} configured",
+                    subtitle = if (enabledCount == 0) "Not configured" else "$enabledCount hour${if (enabledCount == 1) "" else "s"} enabled",
                     onClick = { showAutoSleepDialog = true }
                 )
             }
@@ -455,24 +456,11 @@ fun SettingsScreen(
     }
 
     if (showAutoSleepDialog) {
-        AutoSleepScheduleDialog(
-            schedules = uiState.autoSleepSchedules,
+        AutoSleepGridDialog(
+            autoSleepGrid = uiState.autoSleepGrid,
             onDismiss = { showAutoSleepDialog = false },
-            onAddSchedule = { showAddSleepScheduleDialog = true },
-            onDeleteSchedule = { scheduleToDelete ->
-                val updatedSchedules = uiState.autoSleepSchedules - scheduleToDelete
-                settingsViewModel.updateAutoSleepSchedules(updatedSchedules)
-            }
-        )
-    }
-
-    if (showAddSleepScheduleDialog) {
-        AddSleepScheduleDialog(
-            onDismiss = { showAddSleepScheduleDialog = false },
-            onAdd = { newSchedule ->
-                val updatedSchedules = uiState.autoSleepSchedules + newSchedule
-                settingsViewModel.updateAutoSleepSchedules(updatedSchedules)
-                showAddSleepScheduleDialog = false
+            onToggleCell = { dayOfWeek, hour ->
+                settingsViewModel.toggleAutoSleepCell(dayOfWeek, hour)
             }
         )
     }
@@ -728,54 +716,108 @@ fun formatTimeFormat(key: String): String {
 }
 
 @Composable
-fun AutoSleepScheduleDialog(
-    schedules: List<ConfigManager.SleepSchedule>,
+fun AutoSleepGridDialog(
+    autoSleepGrid: Map<String, Boolean>,
     onDismiss: () -> Unit,
-    onAddSchedule: () -> Unit,
-    onDeleteSchedule: (ConfigManager.SleepSchedule) -> Unit
+    onToggleCell: (Int, Int) -> Unit
 ) {
+    val context = LocalContext.current
+    val configManager = ConfigManager(context)
+    val config = configManager.loadConfig()
+    val use24Hour = config.timeFormat == ConfigManager.TimeFormat.H24
+
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Auto-sleep Schedules") },
+        title = { Text("Auto-sleep Hours") },
         text = {
             Column {
                 Text(
-                    "Set sleep hours. Notifications not answered during these times will be auto-recorded as Asleep.",
+                    "Tap cells to toggle auto-sleep. Missed hours will be auto-recorded as Asleep.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
 
-                if (schedules.isEmpty()) {
-                    Text(
-                        "No schedules configured",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    )
-                } else {
-                    LazyColumn(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(200.dp)
-                    ) {
-                        items(schedules) { schedule ->
-                            ScheduleItem(
-                                schedule = schedule,
-                                onDelete = { onDeleteSchedule(schedule) }
-                            )
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(400.dp)
+                ) {
+                    item {
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            listOf("Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat").forEach { day ->
+                                Text(
+                                    day,
+                                    modifier = Modifier.weight(1f),
+                                    textAlign = TextAlign.Center,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                    items(24) { hour ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            listOf(
+                                Calendar.SUNDAY,
+                                Calendar.MONDAY,
+                                Calendar.TUESDAY,
+                                Calendar.WEDNESDAY,
+                                Calendar.THURSDAY,
+                                Calendar.FRIDAY,
+                                Calendar.SATURDAY
+                            ).forEach { dayOfWeek ->
+                                val key = "$dayOfWeek-$hour"
+                                val isEnabled = autoSleepGrid[key] == true
 
-                Button(
-                    onClick = onAddSchedule,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = "Add")
-                    Text("Add Schedule")
+                                val hourLabel = if (use24Hour) {
+                                    String.format(Locale.US, "%02d", hour)
+                                } else {
+                                    val period = if (hour < 12) "AM" else "PM"
+                                    val displayHour = when (hour) {
+                                        0 -> 12
+                                        in 1..12 -> hour
+                                        else -> hour - 12
+                                    }
+                                    "$displayHour$period"
+                                }
+
+                                Card(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(2.dp)
+                                        .clickable { onToggleCell(dayOfWeek, hour) },
+                                    colors = androidx.compose.material3.CardDefaults.cardColors(
+                                        containerColor = if (isEnabled)
+                                            MaterialTheme.colorScheme.primary
+                                        else
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            hourLabel,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            textAlign = TextAlign.Center,
+                                            color = if (isEnabled)
+                                                MaterialTheme.colorScheme.onPrimary
+                                            else
+                                                MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         },
@@ -785,259 +827,4 @@ fun AutoSleepScheduleDialog(
             }
         }
     )
-}
-
-@Composable
-fun ScheduleItem(
-    schedule: ConfigManager.SleepSchedule,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    formatSchedule(schedule),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Default.Delete,
-                    contentDescription = "Delete",
-                    tint = MaterialTheme.colorScheme.error
-                )
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddSleepScheduleDialog(
-    onDismiss: () -> Unit,
-    onAdd: (ConfigManager.SleepSchedule) -> Unit
-) {
-    val context = LocalContext.current
-
-    var startDay by remember { mutableIntStateOf(Calendar.MONDAY) }
-    var startHour by remember { mutableIntStateOf(23) }
-    var startMinute by remember { mutableIntStateOf(0) }
-
-    var endDay by remember { mutableIntStateOf(Calendar.TUESDAY) }
-    var endHour by remember { mutableIntStateOf(7) }
-    var endMinute by remember { mutableIntStateOf(0) }
-
-    var expandedStartDay by remember { mutableStateOf(false) }
-    var expandedEndDay by remember { mutableStateOf(false) }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Add Sleep Schedule") },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text("Start", style = MaterialTheme.typography.titleSmall)
-
-                ExposedDropdownMenuBox(
-                    expanded = expandedStartDay,
-                    onExpandedChange = { expandedStartDay = it }
-                ) {
-                    OutlinedTextField(
-                        value = getDayName(startDay),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Day") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedStartDay) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, true)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedStartDay,
-                        onDismissRequest = { expandedStartDay = false }
-                    ) {
-                        listOf(
-                            Calendar.SUNDAY,
-                            Calendar.MONDAY,
-                            Calendar.TUESDAY,
-                            Calendar.WEDNESDAY,
-                            Calendar.THURSDAY,
-                            Calendar.FRIDAY,
-                            Calendar.SATURDAY
-                        ).forEach { day ->
-                            DropdownMenuItem(
-                                text = { Text(getDayName(day)) },
-                                onClick = {
-                                    startDay = day
-                                    expandedStartDay = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = formatTime(startHour, startMinute),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Time") },
-                    modifier = Modifier.fillMaxWidth(),
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                        .also { interactionSource ->
-                            LaunchedEffect(interactionSource) {
-                                interactionSource.interactions.collect {
-                                    if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                        TimePickerDialog(
-                                            context,
-                                            { _, hour, minute ->
-                                                startHour = hour
-                                                startMinute = minute
-                                            },
-                                            startHour,
-                                            startMinute,
-                                            false
-                                        ).show()
-                                    }
-                                }
-                            }
-                        }
-                )
-
-                Spacer(modifier = Modifier.height(8.dp))
-                Text("End", style = MaterialTheme.typography.titleSmall)
-
-                ExposedDropdownMenuBox(
-                    expanded = expandedEndDay,
-                    onExpandedChange = { expandedEndDay = it }
-                ) {
-                    OutlinedTextField(
-                        value = getDayName(endDay),
-                        onValueChange = {},
-                        readOnly = true,
-                        label = { Text("Day") },
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedEndDay) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(androidx.compose.material3.MenuAnchorType.PrimaryNotEditable, true)
-                    )
-                    ExposedDropdownMenu(
-                        expanded = expandedEndDay,
-                        onDismissRequest = { expandedEndDay = false }
-                    ) {
-                        listOf(
-                            Calendar.SUNDAY,
-                            Calendar.MONDAY,
-                            Calendar.TUESDAY,
-                            Calendar.WEDNESDAY,
-                            Calendar.THURSDAY,
-                            Calendar.FRIDAY,
-                            Calendar.SATURDAY
-                        ).forEach { day ->
-                            DropdownMenuItem(
-                                text = { Text(getDayName(day)) },
-                                onClick = {
-                                    endDay = day
-                                    expandedEndDay = false
-                                }
-                            )
-                        }
-                    }
-                }
-
-                OutlinedTextField(
-                    value = formatTime(endHour, endMinute),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Time") },
-                    modifier = Modifier.fillMaxWidth(),
-                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                        .also { interactionSource ->
-                            LaunchedEffect(interactionSource) {
-                                interactionSource.interactions.collect {
-                                    if (it is androidx.compose.foundation.interaction.PressInteraction.Release) {
-                                        TimePickerDialog(
-                                            context,
-                                            { _, hour, minute ->
-                                                endHour = hour
-                                                endMinute = minute
-                                            },
-                                            endHour,
-                                            endMinute,
-                                            false
-                                        ).show()
-                                    }
-                                }
-                            }
-                        }
-                )
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    onAdd(
-                        ConfigManager.SleepSchedule(
-                            startDayOfWeek = startDay,
-                            startHour = startHour,
-                            startMinute = startMinute,
-                            endDayOfWeek = endDay,
-                            endHour = endHour,
-                            endMinute = endMinute
-                        )
-                    )
-                }
-            ) {
-                Text("Add")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
-            }
-        }
-    )
-}
-
-private fun getDayName(dayOfWeek: Int): String {
-    return when (dayOfWeek) {
-        Calendar.SUNDAY -> "Sunday"
-        Calendar.MONDAY -> "Monday"
-        Calendar.TUESDAY -> "Tuesday"
-        Calendar.WEDNESDAY -> "Wednesday"
-        Calendar.THURSDAY -> "Thursday"
-        Calendar.FRIDAY -> "Friday"
-        Calendar.SATURDAY -> "Saturday"
-        else -> "Unknown"
-    }
-}
-
-private fun formatTime(hour: Int, minute: Int): String {
-    val period = if (hour < 12) "AM" else "PM"
-    val displayHour = when (hour) {
-        0 -> 12
-        in 1..12 -> hour
-        else -> hour - 12
-    }
-    return String.format(Locale.US, "%d:%02d %s", displayHour, minute, period)
-}
-
-private fun formatSchedule(schedule: ConfigManager.SleepSchedule): String {
-    val startDay = getDayName(schedule.startDayOfWeek).take(3)
-    val endDay = getDayName(schedule.endDayOfWeek).take(3)
-    val startTime = formatTime(schedule.startHour, schedule.startMinute)
-    val endTime = formatTime(schedule.endHour, schedule.endMinute)
-    return "$startDay $startTime → $endDay $endTime"
 }
