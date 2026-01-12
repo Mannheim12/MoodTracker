@@ -188,13 +188,13 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
                 val previousHourId = prefs.getString(PREF_HOURLY_ID, null)
                 if (previousHourId != null) {
                     // Check if this hour was in a sleep window
-                    val previousTimestamp = configManager.convertUtcHourIdToTimestamp(previousHourId)
-                    if (previousTimestamp != null && configManager.isTimestampInSleepWindow(previousTimestamp)) {
+                    if (configManager.isHourIdInSleepWindow(previousHourId)) {
                         // Check if it wasn't already filled in by the user
                         val existingEntry = dataManager.getEntryByHourId(previousHourId)
                         if (existingEntry == null) {
                             // Auto-record as "Asleep"
-                            dataManager.addMoodEntry("Asleep", previousHourId, previousTimestamp)
+                            val previousTimestamp = configManager.convertUtcHourIdToTimestamp(previousHourId)
+                            dataManager.addMoodEntry("Asleep", previousHourId, previousTimestamp ?: now)
                         }
                     }
                 }

@@ -342,21 +342,24 @@ class ConfigManager(private val context: Context) {
     }
 
     /**
-     * Check if a UTC timestamp should be auto-recorded as sleep
-     * @param timestamp The UTC timestamp in milliseconds
+     * Check if a UTC hour ID should be auto-recorded as sleep
+     * @param utcHourId The UTC hour ID string (e.g., "2025011107")
      * @return true if this hour should be marked as asleep
      */
-    fun isTimestampInSleepWindow(timestamp: Long): Boolean {
+    fun isHourIdInSleepWindow(utcHourId: String): Boolean {
         val config = loadConfig()
         if (config.autoSleepGrid.isEmpty()) return false
 
-        val calendar = Calendar.getInstance().apply {
+        // Convert UTC hour ID to timestamp, then to local time to get day-of-week and hour
+        val timestamp = convertUtcHourIdToTimestamp(utcHourId) ?: return false
+
+        // Create calendar in local timezone and set the timestamp
+        val localCalendar = Calendar.getInstance().apply {
             timeInMillis = timestamp
-            timeZone = TimeZone.getDefault()
         }
 
-        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val dayOfWeek = localCalendar.get(Calendar.DAY_OF_WEEK)
+        val hour = localCalendar.get(Calendar.HOUR_OF_DAY)
         val key = "$dayOfWeek-$hour"
 
         return config.autoSleepGrid[key] == true
