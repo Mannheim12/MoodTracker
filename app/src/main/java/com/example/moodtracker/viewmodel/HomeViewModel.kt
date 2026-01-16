@@ -88,8 +88,6 @@ data class DebugInfoUiState(
     val databaseEntryCount: Int = 0,
     val latestEntry: String = "",
     // Configuration
-    val minInterval: Int = 0,
-    val maxInterval: Int = 0,
     val timeFormat: String = "",
     val appTheme: String = "",
     val autoExportFrequency: String = "",
@@ -418,8 +416,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     batteryOptimizationExempt = batteryOptExempt,
                     databaseEntryCount = entryCount,
                     latestEntry = latestEntryInfo,
-                    minInterval = config.minIntervalMinutes,
-                    maxInterval = config.maxIntervalMinutes,
                     timeFormat = timeFormatDisplay,
                     appTheme = appThemeDisplay,
                     autoExportFrequency = autoExportDisplay,

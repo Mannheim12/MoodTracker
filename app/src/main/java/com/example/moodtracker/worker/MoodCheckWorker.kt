@@ -43,6 +43,10 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         const val PREF_HOURLY_ID = "hourly_id" // ID for the current hour in format YYYYMMDDHH
         const val UNIQUE_WORK_NAME = "mood_check_worker"
 
+        // Interval constraints for random scheduling (in minutes)
+        private const val MIN_INTERVAL_MINUTES = 30
+        private const val MAX_INTERVAL_MINUTES = 90
+
         /**
          * Initiates or immediately triggers mood tracking
          * @param context Application context
@@ -101,12 +105,6 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * 2. Between 30-90 minutes from now (or configured interval)
          */
         fun calculateNextInterval(context: Context): Long {
-            val configManager = ConfigManager(context)
-            val config = configManager.loadConfig()
-
-            val minIntervalMinutes = config.minIntervalMinutes
-            val maxIntervalMinutes = config.maxIntervalMinutes
-
             val now = System.currentTimeMillis()
 
             // Use explicit local timezone for scheduling (notifications should appear at reasonable local times)
@@ -129,8 +127,8 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             val nextHourEnd = calendar.timeInMillis
 
             // Calculate interval constraints from current time
-            val minTime = now + TimeUnit.MINUTES.toMillis(minIntervalMinutes.toLong())
-            val maxTime = now + TimeUnit.MINUTES.toMillis(maxIntervalMinutes.toLong())
+            val minTime = now + TimeUnit.MINUTES.toMillis(MIN_INTERVAL_MINUTES.toLong())
+            val maxTime = now + TimeUnit.MINUTES.toMillis(MAX_INTERVAL_MINUTES.toLong())
 
             // Find the valid scheduling window (intersection of hour constraint and interval constraint)
             val validStart = maxOf(nextHourStart, minTime)

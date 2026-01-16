@@ -54,10 +54,6 @@ object Constants {
     const val NOTIFICATION_ID = 1001
     const val WORKER_TAG = "mood_check_worker"
 
-    // Time constants
-    const val MIN_INTERVAL_MINUTES = 30
-    const val MAX_INTERVAL_MINUTES = 90
-
     // Default moods if config file is missing or corrupt
     val DEFAULT_MOODS = listOf(
         // Valence/Arousal/Dominance information: -1 = low, 0 = medium, 1 = high, 2 = N/A

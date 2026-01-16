@@ -519,8 +519,6 @@ fun DebugInfoDisplayCard(
 
             // Configuration Section
             DebugSection(title = "CONFIGURATION") {
-                DebugRow("Min Interval", "${state.minInterval} minutes")
-                DebugRow("Max Interval", "${state.maxInterval} minutes")
                 DebugRow("Time Format", state.timeFormat)
                 DebugRow("App Theme", state.appTheme)
                 DebugRow("Auto-export", state.autoExportFrequency)

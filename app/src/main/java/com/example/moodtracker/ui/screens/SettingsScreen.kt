@@ -78,8 +78,6 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
 
-    var showMinIntervalDialog by rememberSaveable { mutableStateOf(false) }
-    var showMaxIntervalDialog by rememberSaveable { mutableStateOf(false) }
     var showAutoExportDialog by rememberSaveable { mutableStateOf(false) }
     var showTimelineHoursDialog by rememberSaveable { mutableStateOf(false) }
     var showTimeFormatDialog by rememberSaveable { mutableStateOf(false) }
@@ -201,20 +199,6 @@ fun SettingsScreen(
                 )
             }
             item {
-                SettingsItem(
-                    title = "Minimum Tracking Interval",
-                    subtitle = "${uiState.minIntervalMinutes} minutes",
-                    onClick = { showMinIntervalDialog = true }
-                )
-            }
-            item {
-                SettingsItem(
-                    title = "Maximum Tracking Interval",
-                    subtitle = "${uiState.maxIntervalMinutes} minutes",
-                    onClick = { showMaxIntervalDialog = true }
-                )
-            }
-            item {
                 val enabledCount = uiState.autoSleepGrid.count { it.value }
                 SettingsItem(
                     title = "Auto-sleep Hours",
@@ -323,32 +307,6 @@ fun SettingsScreen(
     }
 
     // Dialogs
-    if (showMinIntervalDialog) {
-        NumberPickerDialog(
-            title = "Minimum Tracking Interval (5-55 min)",
-            currentValue = uiState.minIntervalMinutes,
-            range = 5..55,
-            onDismiss = { showMinIntervalDialog = false },
-            onConfirm = { newValue ->
-                settingsViewModel.updateMinInterval(newValue)
-                showMinIntervalDialog = false
-            }
-        )
-    }
-
-    if (showMaxIntervalDialog) {
-        NumberPickerDialog(
-            title = "Maximum Tracking Interval (65-115 min)",
-            currentValue = uiState.maxIntervalMinutes,
-            range = 65..115,
-            onDismiss = { showMaxIntervalDialog = false },
-            onConfirm = { newValue ->
-                settingsViewModel.updateMaxInterval(newValue)
-                showMaxIntervalDialog = false
-            }
-        )
-    }
-
     if (showTimelineHoursDialog) {
         SliderPickerDialog(
             title = "Timeline Hours (12-96)",

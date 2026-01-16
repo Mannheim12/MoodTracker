@@ -27,8 +27,6 @@ class ConfigManager(private val context: Context) {
     // Data class for configuration
     data class Config(
         // Mood & Tracking
-        val minIntervalMinutes: Int = Constants.MIN_INTERVAL_MINUTES,
-        val maxIntervalMinutes: Int = Constants.MAX_INTERVAL_MINUTES,
         val moods: List<Mood> = Constants.DEFAULT_MOODS,
         val autoSleepGrid: Map<String, Boolean> = emptyMap(), // Key format: "dayOfWeek-hour" (e.g., "1-23" for Sunday 11 PM)
 
@@ -201,8 +199,6 @@ class ConfigManager(private val context: Context) {
             val configMap = mapAdapter.fromJson(json) ?: return Config()
 
             // Extract non-mood fields
-            val minInterval = (configMap["minIntervalMinutes"] as? Double)?.toInt() ?: Constants.MIN_INTERVAL_MINUTES
-            val maxInterval = (configMap["maxIntervalMinutes"] as? Double)?.toInt() ?: Constants.MAX_INTERVAL_MINUTES
             val autoExport = configMap["autoExportFrequency"] as? String ?: AutoExportFrequency.OFF
             val timeFormat = configMap["timeFormat"] as? String ?: TimeFormat.SYSTEM_DEFAULT
             val appTheme = configMap["appTheme"] as? String ?: AppTheme.SYSTEM
@@ -210,8 +206,6 @@ class ConfigManager(private val context: Context) {
 
             // For moods, just use the new defaults since the old categories don't map cleanly to VAD
             val newConfig = Config(
-                minIntervalMinutes = minInterval,
-                maxIntervalMinutes = maxInterval,
                 moods = Constants.DEFAULT_MOODS, // Use new VAD-based moods
                 autoExportFrequency = autoExport,
                 timeFormat = timeFormat,

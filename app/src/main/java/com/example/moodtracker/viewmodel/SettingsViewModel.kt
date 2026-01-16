@@ -14,8 +14,6 @@ import kotlinx.coroutines.launch
 
 // Data class to hold all settings UI state
 data class SettingsUiState(
-    val minIntervalMinutes: Int = ConfigManager.Config().minIntervalMinutes,
-    val maxIntervalMinutes: Int = ConfigManager.Config().maxIntervalMinutes,
     val autoSleepGrid: Map<String, Boolean> = emptyMap(),
     val autoExportFrequency: String = ConfigManager.Config().autoExportFrequency,
     val timelineHours: Int = ConfigManager.Config().timelineHours,
@@ -41,8 +39,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         val currentConfig = configManager.loadConfig()
         _uiState.update {
             it.copy(
-                minIntervalMinutes = currentConfig.minIntervalMinutes,
-                maxIntervalMinutes = currentConfig.maxIntervalMinutes,
                 autoSleepGrid = currentConfig.autoSleepGrid,
                 autoExportFrequency = currentConfig.autoExportFrequency,
                 timelineHours = currentConfig.timelineHours,
@@ -57,8 +53,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         configManager.saveConfig(newConfig)
         _uiState.update {
             it.copy(
-                minIntervalMinutes = newConfig.minIntervalMinutes,
-                maxIntervalMinutes = newConfig.maxIntervalMinutes,
                 autoSleepGrid = newConfig.autoSleepGrid,
                 autoExportFrequency = newConfig.autoExportFrequency,
                 timelineHours = newConfig.timelineHours,
@@ -67,18 +61,6 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 debugModeEnabled = newConfig.debugModeEnabled
             )
         }
-    }
-
-    fun updateMinInterval(minutes: Int) {
-        val currentConfig = configManager.loadConfig()
-        // Add validation if needed, e.g., minutes in range [5, 55]
-        saveAndUpdateState(currentConfig.copy(minIntervalMinutes = minutes))
-    }
-
-    fun updateMaxInterval(minutes: Int) {
-        val currentConfig = configManager.loadConfig()
-        // Add validation if needed, e.g., minutes in range [65, 115]
-        saveAndUpdateState(currentConfig.copy(maxIntervalMinutes = minutes))
     }
 
     fun updateAutoExportFrequency(frequency: String) {
