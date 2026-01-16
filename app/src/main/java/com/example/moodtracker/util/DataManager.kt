@@ -199,11 +199,11 @@ class DataManager(private val context: Context) {
     }
 
     /**
-     * For debugging: get the most recent entry
+     * Get the entry with the most recent hour ID (furthest forward in time)
      */
     suspend fun getMostRecentEntry(): MoodEntry? = withContext(Dispatchers.IO) {
         val entries = database.moodEntryDao().getAllEntries()
-        return@withContext entries.maxByOrNull { it.timestamp }
+        return@withContext entries.maxByOrNull { it.id }
     }
 
     /**
