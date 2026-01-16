@@ -98,11 +98,11 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
         }
 
         /**
-         * Calculates the next interval based on config settings and hourly constraints
+         * Calculates the next interval based on hourly constraints
          * Scheduling uses local timezone so notifications appear at reasonable local times
          * The next check will be a random time that satisfies:
          * 1. Within hour X+1 (in local time)
-         * 2. Between 30-90 minutes from now (or configured interval)
+         * 2. Between 30-90 minutes from now
          */
         fun calculateNextInterval(context: Context): Long {
             val now = System.currentTimeMillis()
