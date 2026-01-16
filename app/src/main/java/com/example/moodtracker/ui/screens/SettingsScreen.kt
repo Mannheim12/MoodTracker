@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.AlertDialog
@@ -29,7 +28,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SnackbarDuration
@@ -53,7 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -467,66 +464,6 @@ fun SettingsActionItem(title: String, onClick: () -> Unit, isDestructive: Boolea
     ) {
         Text(title, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
-}
-
-
-@Composable
-fun NumberPickerDialog(
-    title: String,
-    currentValue: Int,
-    range: IntRange,
-    onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
-) {
-    var tempStringValue by rememberSaveable { mutableStateOf(currentValue.toString()) }
-    val (isValidInput, parsedNum) = remember(tempStringValue) {
-        val num = tempStringValue.toIntOrNull()
-        if (num != null && num in range) {
-            Pair(true, num)
-        } else {
-            Pair(false, null)
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text = {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                OutlinedTextField(
-                    value = tempStringValue,
-                    onValueChange = { newValue ->
-                        // Allow any text input, validation happens for confirm button enablement
-                        tempStringValue = newValue
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Value (${range.first} - ${range.last})") },
-                    isError = tempStringValue.isNotEmpty() && !isValidInput // Show error if input is not empty and not valid
-                )
-                if (tempStringValue.isNotEmpty() && !isValidInput) {
-                    Text(
-                        "Please enter a number between ${range.first} and ${range.last}.",
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = 4.dp)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = {
-                    parsedNum?.let { onConfirm(it) } // Only call confirm if parsedNum is not null
-                },
-                enabled = isValidInput // Enable button only if input is valid
-            ) { Text("Confirm") }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
 }
 
 @Composable

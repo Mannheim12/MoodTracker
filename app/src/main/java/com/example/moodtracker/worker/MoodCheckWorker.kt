@@ -57,7 +57,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             WorkManager.getInstance(context).cancelUniqueWork(UNIQUE_WORK_NAME)
 
             // Calculate initial delay ('Check Now' uses 1 second for quick testing)
-            val delayMillis = if (isImmediate) 1000L else calculateNextInterval(context)
+            val delayMillis = if (isImmediate) 1000L else calculateNextInterval()
 
             // Update tracking state
             val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -103,7 +103,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
          * 1. Within hour X+1 (in local time)
          * 2. Between 30-90 minutes from now
          */
-        fun calculateNextInterval(context: Context): Long {
+        fun calculateNextInterval(): Long {
             val now = System.currentTimeMillis()
 
             // Use explicit local timezone for scheduling (notifications should appear at reasonable local times)
@@ -209,7 +209,7 @@ class MoodCheckWorker(context: Context, params: WorkerParameters) : CoroutineWor
             showMoodCheckNotification(currentHourId)
 
             // Schedule next work
-            val nextIntervalMillis = calculateNextInterval(applicationContext)
+            val nextIntervalMillis = calculateNextInterval()
             val nextCheckTime = now + nextIntervalMillis
             prefs.edit().putLong(PREF_NEXT_CHECK_TIME, nextCheckTime).apply()
 
