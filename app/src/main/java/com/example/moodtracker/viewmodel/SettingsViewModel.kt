@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.moodtracker.model.Constants
 import com.example.moodtracker.util.ConfigManager
 import com.example.moodtracker.util.DataManager
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -164,11 +165,11 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     suspend fun generateDataExportFilename(): String {
         val mostRecentEntry = dataManager.getMostRecentEntry()
+        val baseFilename = Constants.DATA_FILE_NAME.removeSuffix(".csv")
         return if (mostRecentEntry != null) {
-            val dateString = configManager.formatTimestampForFilename(mostRecentEntry.timestamp)
-            "mood_tracker_data_$dateString.csv"
+            "${baseFilename}_${mostRecentEntry.id}.csv"
         } else {
-            "mood_tracker_data.csv"
+            Constants.DATA_FILE_NAME
         }
     }
 }
